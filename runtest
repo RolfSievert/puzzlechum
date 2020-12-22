@@ -104,23 +104,8 @@ for in_file, ans_file in testing_tuples:
         rest = o_file.read()
         if rest:
             no_bad_ones = False
-            print("Got correct answers, but also redundant output:")
-            print(rest)
-
-
-    """ Old code testing with diff
-    try:
-        os.system('diff -Z tmp/output {} > tmp/diff'.format(os.path.join(test_dir, ans_file)))
-    except:
-        os.system('diff tmp/output {} > tmp/diff'.format(os.path.join(test_dir, ans_file)))
-    res = os.stat('tmp/diff')
-    if res.st_size > 0:
-        no_bad_ones = False
-        print('{}===> {} {}'.format(RED, in_file, NULL).rstrip())
-        with open('tmp/diff', 'r') as f:
-            for line in f:
-                print(line.rstrip())
-    """
+            print(f"{YELLOW}{ans_file}{NULL} got trailing output:");
+            print(f"{RED}rest{NULL}\n")
 
 if no_bad_ones:
     print("{}✔ - AC{}".format(GREEN, NULL))
