@@ -1,0 +1,127 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim:fenc=utf-8
+
+"""
+Runs tests on provided problem id.
+"""
+
+import sys
+import os
+
+problem_root = "problems"
+
+if (len(sys.argv)) != 2:
+    print(f"Should recieve 1 argument, got {len(sys.argv)}")
+    exit(0)
+problemname = sys.argv[1]
+problem_dir = os.path.join(problem_root, problemname)
+
+RED = '\x1b[38;5;3m'
+BLUE = '\x1b[38;5;2m'
+GREEN = '\x1b[38;5;1m'
+YELLOW = '\x1b[38;5;4m'
+NULL = '\x1b[0m'
+
+is_cpp = os.path.isfile(os.path.join(problem_dir, '{}.cpp'.format(problemname)))
+
+test_dir = os.path.join('tests', problemname)
+testing_items = os.listdir(test_dir)
+def ends_in(x):
+    return lambda string: string.endswith(x)
+ans = [x for x in sorted(testing_items) if x.endswith('.ans')]
+ins = [x for x in sorted(testing_items) if x.endswith('.in')]
+testing_tuples = zip(ins, ans)
+
+try:
+    os.mkdir('tmp')
+except OSError:
+    pass
+
+items = os.listdir(problem_dir)
+
+# TODO extend to handle more languages
+
+# Build binary
+if is_cpp:
+    CC = f"g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I{problem_dir}"
+    problem_path = os.path.join(problem_dir, f"{problemname}.cpp")
+    os.system(f"{CC} {problem_path}")
+
+    # output generation
+    def test_for(in_file):
+        os.system('./tmp/prg < {} > tmp/output'.format(os.path.join(test_dir, in_file)))
+
+# Run tests
+no_bad_ones = True
+for in_file, ans_file in testing_tuples:
+    test_for(in_file)
+
+    # output logging
+    stack_max_size = 8
+    output_stack = []
+
+    # compare output and answers
+    """
+    If all correct, don't print.
+
+    Print stack of previously corrected lines as green.
+
+    Print wrong output and all following as red.
+
+    Print expected output.
+    """
+    with open('tmp/output', 'r') as o_file, open(os.path.join(test_dir, ans_file), 'r') as a_file:
+        for line, a_line in enumerate(a_file):
+            # only check when input has a non-whitespace
+            if not a_line.isspace():
+                o_line = o_file.readline()
+                while o_line.isspace():
+                    o_line = o_file.readline()
+
+                # lines are not the same (excluding whitespace)
+                if a_line.split() != o_line.split():
+                    no_bad_ones = False
+                    for o in output_stack:
+                        if o == output_stack[-1]:
+                            print(f"{GREEN}{o}{NULL}", end='')
+                        else:
+                            print(o)
+                    print(f"{YELLOW}{ans_file}{NULL} failed at line {line+1}")
+                    print(f"EXPECTED: {BLUE}{a_line}{NULL}")
+                    # strip endlines etc with rstrip
+                    print(f"{RED}{o_line}{NULL}", end='')
+                    print(f"{RED}{o_file.read()}{NULL}")
+
+                    print("ANSWERS:")
+                    print(a_file.read())
+
+                # save output
+                output_stack.append(o_line)
+                if len(output_stack) > stack_max_size:
+                    output_stack.pop(0)
+        # When done reading answers, check that there are not any residual in output
+        rest = o_file.read()
+        if rest:
+            no_bad_ones = False
+            print("Got correct answers, but also redundant output:")
+            print(rest)
+
+
+    """ Old code testing with diff
+    try:
+        os.system('diff -Z tmp/output {} > tmp/diff'.format(os.path.join(test_dir, ans_file)))
+    except:
+        os.system('diff tmp/output {} > tmp/diff'.format(os.path.join(test_dir, ans_file)))
+    res = os.stat('tmp/diff')
+    if res.st_size > 0:
+        no_bad_ones = False
+        print('{}===> {} {}'.format(RED, in_file, NULL).rstrip())
+        with open('tmp/diff', 'r') as f:
+            for line in f:
+                print(line.rstrip())
+    """
+
+if no_bad_ones:
+    print("{}✔ - AC{}".format(GREEN, NULL))
+os.system('rm -rf tmp')

@@ -1,0 +1,58 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim:fenc=utf-8
+
+"""
+Provided a problem id, downloads tests and creates a test file if it doesn't exist already.
+"""
+
+import os
+import shutil
+import sys
+import zipfile
+
+if len(sys.argv) != 2:
+    print("Usage: ./new_problem problemname")
+    sys.exit(0)
+
+language = 'cpp'
+
+# Root folders
+problem_root = 'problems'
+tests_root = 'tests'
+templates_root = 'templates'
+
+problemname = sys.argv[1]
+problem_dir = os.path.join(problem_root, problemname)
+problem_path = os.path.join(problem_root, problemname, '{}.{}'.format(problemname, language))
+problem_test = os.path.join(tests_root, problemname)
+
+if not os.path.exists(problem_dir):
+    os.mkdir(problem_dir)
+    shutil.copyfile(os.path.join(templates_root, 'template.{}'.format(language)), problem_path)
+    print("'{}' was successfully opened, time to get solving!".format(problemname))
+else:
+    print("'{}' already exists, skipping...".format(problemname))
+
+
+### Download tests
+
+try:
+    os.mkdir(problem_test)
+except FileExistsError:
+    print("Test folder already exists")
+
+sample_url = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
+url = sample_url.format(problemname)
+
+# For some reason python http lib gets 403 forbidden ??? Just use wget instead -.-
+os.system('wget -q {}'.format(url))
+try:
+    local_zip = 'samples.zip'
+    f = zipfile.ZipFile(local_zip)
+    f.extractall(problem_test)
+    os.remove(local_zip)
+    print("Samples fetched from kattis and put into tests folder")
+except:
+    print('Could not download sample input.' \
+          + ' Perhaps none exist on Kattis or you do not have internet connection?')
