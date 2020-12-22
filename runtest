@@ -93,8 +93,11 @@ for in_file, ans_file in testing_tuples:
                     print(f"{RED}{o_line}{NULL}", end='')
                     print(f"{RED}{o_file.read()}{NULL}")
 
-                    print("ANSWERS:")
-                    print(a_file.read())
+                    # Print rest of expected output
+                    a_dump = a_file.read()
+                    if (a_dump):
+                        print("ANSWERS:")
+                        print(a_dump)
 
                 # save output
                 output_stack.append(o_line)
