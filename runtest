@@ -108,7 +108,7 @@ for in_file, ans_file in testing_tuples:
         if rest:
             no_bad_ones = False
             print(f"{YELLOW}{ans_file}{NULL} got trailing output:");
-            print(f"{RED}rest{NULL}\n")
+            print(f"{RED}{rest}{NULL}\n")
 
 if no_bad_ones:
     print("{}✔ - AC{}".format(GREEN, NULL))
