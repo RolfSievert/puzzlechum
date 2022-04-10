@@ -7,15 +7,9 @@ Runs tests on provided problem id.
 """
 
 import sys
-import os
-
-problem_root = "problems"
-
-if (len(sys.argv)) != 2:
-    print(f"Should recieve 1 argument, got {len(sys.argv)}")
-    exit(0)
-problemname = sys.argv[1]
-problem_dir = os.path.join(problem_root, problemname)
+from pathlib import Path
+import subprocess
+import argparse
 
 RED = '\x1b[38;5;3m'
 BLUE = '\x1b[38;5;2m'
@@ -23,43 +17,53 @@ GREEN = '\x1b[38;5;1m'
 YELLOW = '\x1b[38;5;4m'
 NULL = '\x1b[0m'
 
-is_cpp = os.path.isfile(os.path.join(problem_dir, '{}.cpp'.format(problemname)))
+PROBLEM_ROOT = Path("./problems")
 
-test_dir = os.path.join('tests', problemname)
-testing_items = os.listdir(test_dir)
-def ends_in(x):
-    return lambda string: string.endswith(x)
-ans = [x for x in sorted(testing_items) if x.endswith('.ans')]
-ins = [x for x in sorted(testing_items) if x.endswith('.in')]
-testing_tuples = zip(ins, ans)
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("problem_name")
+    parser.add_argument("-t", help="sum execution time over t iterations", type=int, default=0)
+    return parser.parse_args()
 
-try:
-    os.mkdir('tmp')
-except OSError:
-    pass
+def get_test_files(test_dir):
+    ans = sorted(Path(test_dir).glob('*.ans'))
+    ins = sorted(Path(test_dir).glob('*.in'))
+    return zip([str(x) for x in ins], [str(x) for x in ans])
 
-items = os.listdir(problem_dir)
+def check_create_tmp_dir():
+    tmp_dir = Path("tmp")
+    if not tmp_dir.is_dir():
+        try:
+            tmp_dir.mkdir()
+        except (FileExistsError, FileNotFoundError) as err:
+            print("Could not create {tmp.dir}:", err)
 
-# TODO extend to handle more languages
+def run_test(test_execution_command, in_file, times):
+    # use format to insert test file path
+    exec_command = test_execution_command.format(in_file)
+    if times:
+        time_command = '/usr/bin/time --format="%e %U %S" sh -c '
+        exec_command = time_command + "\"for i in {1.." + str(times) + "}; do " + exec_command + "; done\""
+    stderr_output = subprocess.check_output([exec_command], stderr=subprocess.STDOUT, shell=True)
+    if times and stderr_output:
+        real, user, system = stderr_output.decode().split()
+        print("real {} user {} system {} U+S {:.2f}".format(real, user, system, float(user) + float(system)))
 
-# Build binary
-if is_cpp:
-    CC = f"g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I{problem_dir}"
-    problem_path = os.path.join(problem_dir, f"{problemname}.cpp")
-    os.system(f"{CC} {problem_path}")
+def compile_and_get_test_command(problem_dir, problem_name):
+    # TODO extend to handle more languages
+    cpp_path = problem_dir / f'{problem_name}.cpp'
+    if cpp_path.is_file():
+        CC = f"g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I {problem_dir}"
+        subprocess.call(f"{CC} {cpp_path}", shell=True)
+        return "./tmp/prg < {} > tmp/output"
 
-    # output generation
-    def test_for(in_file):
-        os.system('./tmp/prg < {} > tmp/output'.format(os.path.join(test_dir, in_file)))
+    raise(f"No problem solution found! Searched in {str(problem_dir / problem_name)}")
 
-# Run tests
-no_bad_ones = True
-for in_file, ans_file in testing_tuples:
-    test_for(in_file)
-
+def check_test(ans_file):
     # output logging
-    stack_max_size = 8
+    stack_max_size = 16
     output_stack = []
+    success = True
 
     # compare output and answers
     """
@@ -71,7 +75,7 @@ for in_file, ans_file in testing_tuples:
 
     Print expected output.
     """
-    with open('tmp/output', 'r') as o_file, open(os.path.join(test_dir, ans_file), 'r') as a_file:
+    with open('tmp/output', 'r') as o_file, open(Path(ans_file), 'r') as a_file:
         for line, a_line in enumerate(a_file):
             # only check when input has a non-whitespace
             if not a_line.isspace():
@@ -81,7 +85,7 @@ for in_file, ans_file in testing_tuples:
 
                 # lines are not the same (excluding whitespace)
                 if a_line.split() != o_line.split():
-                    no_bad_ones = False
+                    success = False
                     for o in output_stack:
                         if o == output_stack[-1]:
                             print(f"{GREEN}{o}{NULL}", end='')
@@ -106,10 +110,33 @@ for in_file, ans_file in testing_tuples:
         # When done reading answers, check that there are not any residual in output
         rest = o_file.read()
         if rest:
-            no_bad_ones = False
+            success = False
             print(f"{YELLOW}{ans_file}{NULL} got trailing output:");
             print(f"{RED}{rest}{NULL}\n")
 
-if no_bad_ones:
-    print("{}✔ - AC{}".format(GREEN, NULL))
-os.system('rm -rf tmp')
+    return success
+
+def __main__():
+    args = parse_args()
+    problem_dir = PROBLEM_ROOT / args.problem_name
+
+    test_dir = Path('tests', args.problem_name)
+    testing_tuples = get_test_files(test_dir)
+
+    check_create_tmp_dir()
+
+    print("Compiling program...")
+    test_execution_command = compile_and_get_test_command(problem_dir, args.problem_name)
+
+    print("Running tests...")
+    success = True
+    for in_file, ans_file in testing_tuples:
+        run_test(test_execution_command, in_file, args.t)
+        success = success and check_test(ans_file)
+
+    if success:
+        print("{}✔ - AC{}".format(GREEN, NULL))
+        # cleanup
+        subprocess.run('rm -rf tmp', shell=True)
+
+__main__()
