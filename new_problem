@@ -6,53 +6,112 @@
 Provided a problem id, downloads tests and creates a test file if it doesn't exist already.
 """
 
-import os
 import shutil
-import sys
+import requests
+from pathlib import Path
+import argparse
 import zipfile
 
-if len(sys.argv) != 2:
-    print("Usage: ./new_problem problemname")
-    sys.exit(0)
-
-language = 'cpp'
-
 # Root folders
-problem_root = 'problems'
-tests_root = 'tests'
-templates_root = 'templates'
+PROBLEMS_ROOT = Path(__file__).parent / 'problems'
+TESTS_ROOT = Path(__file__).parent / 'tests'
+TEMPLATES_ROOT = Path(__file__).parent / 'templates'
 
-problemname = sys.argv[1]
-problem_dir = os.path.join(problem_root, problemname)
-problem_path = os.path.join(problem_root, problemname, '{}.{}'.format(problemname, language))
-problem_test = os.path.join(tests_root, problemname)
+TEMPLATES = ['cpp', 'rs', 'py', 'js', 'ts', 'c', 'c#']
 
-if not os.path.exists(problem_dir):
-    os.mkdir(problem_dir)
-    shutil.copyfile(os.path.join(templates_root, 'template.{}'.format(language)), problem_path)
-    print("'{}' was successfully opened, time to get solving!".format(problemname))
-else:
-    print("'{}' already exists, skipping...".format(problemname))
+TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
+DEFAULT_LANGUAGE = TEMPLATES[0]
 
-### Download tests
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog='new_problem',
+        description='Download given kattis test cases, creates problem folder, and copies problem template to that folder')
 
-try:
-    os.mkdir(problem_test)
-except FileExistsError:
-    print("Test folder already exists")
+    parser.add_argument('problem_name', type=str, help='Kattis problem ID, check the url after \'problems/\'')
+    parser.add_argument('--template', choices=TEMPLATES, default=DEFAULT_LANGUAGE, help='what template to use, must exist in \'templates/\' folder')
 
-sample_url = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
-url = sample_url.format(problemname)
+    return parser.parse_args()
 
-# For some reason python http lib gets 403 forbidden ??? Just use wget instead -.-
-os.system('wget -q {}'.format(url))
-try:
-    local_zip = 'samples.zip'
-    f = zipfile.ZipFile(local_zip)
-    f.extractall(problem_test)
-    os.remove(local_zip)
-    print("Samples fetched from kattis and put into tests folder")
-except:
-    print('Could not download sample input.' \
-          + ' Perhaps none exist on Kattis or you do not have internet connection?')
+def create_missing_folders(problem_name):
+    if not PROBLEMS_ROOT.is_dir():
+        PROBLEMS_ROOT.mkdir()
+
+    if not TESTS_ROOT.is_dir():
+        TESTS_ROOT.mkdir()
+
+    if not TEMPLATES_ROOT.is_dir():
+        TEMPLATES_ROOT.mkdir()
+
+def problem_test_directory(problem_name):
+    return TESTS_ROOT / problem_name
+
+def download_tests(problem_name):
+    tests_dir = problem_test_directory(problem_name)
+
+    if tests_dir.is_dir():
+        return False
+    else:
+        tests_dir.mkdir()
+
+    zip_path = Path('samples.zip')
+
+    try:
+        with open(zip_path, 'wb') as file:
+            url = TESTS_URL.format(problem_name)
+            response = requests.get(url)
+            file.write(response.content)
+    except:
+        raise('Could not download test samples!' +
+              f"Does '{problem_name}' really exist at kattis, and do you have an internet connection?")
+
+    # extract sample input to tests folder
+    f = zipfile.ZipFile(zip_path)
+    f.extractall(tests_dir)
+
+    # remove zip
+    Path(zip_path).unlink()
+
+    return True
+
+def create_problem_folders(problem_name):
+    if not (PROBLEMS_ROOT / problem_name).is_dir():
+        (PROBLEMS_ROOT / problem_name).mkdir()
+
+def problem_path(problem_name, file_suffix):
+    return PROBLEMS_ROOT / problem_name / f'{problem_name}.{file_suffix}'
+
+def copy_template(template_suffix, destination):
+    success = False
+    problem_path = destination
+
+    if not problem_path.is_file():
+        template = TEMPLATES_ROOT / f'template.{template_suffix}'
+        if not template.is_file():
+            raise(f"Template '{template}' does not exist! Perhaps create one?")
+        else:
+            shutil.copyfile(template, problem_path)
+
+        success = True
+
+    return success
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    create_missing_folders(args.problem_name)
+    create_problem_folders(args.problem_name)
+
+    problem_file = problem_path(args.problem_name, args.template)
+    template_success = copy_template(args.template, problem_file)
+
+    if template_success:
+        print(f'Copied template to \'{problem_file}\'')
+    else:
+        print(f'Problem already exists at {problem_file}')
+
+    tests_success = download_tests(args.problem_name)
+    if tests_success:
+        print(f"Test samples successfully downloaded to '{problem_test_directory(args.problem_name)}'")
+    else:
+        print(f"Test samples already exists, skipping...")
