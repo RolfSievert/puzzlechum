@@ -53,8 +53,15 @@ def compile_and_get_test_command(problem_dir, problem_name):
     # TODO extend to handle more languages
     cpp_path = problem_dir / f'{problem_name}.cpp'
     if cpp_path.is_file():
-        CC = f"g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I {problem_dir}"
+        CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I {problem_dir}'
         subprocess.call(f"{CC} {cpp_path}", shell=True)
+        return "./tmp/prg < {} > tmp/output"
+
+    rust_path = problem_dir / f'{problem_name}.rs'
+    if rust_path.is_file():
+        # see https://open.kattis.com/help/rust
+        CC = f'rustc -o tmp/prg --crate-type bin --edition=2018'
+        subprocess.call(f"{CC} {rust_path}", shell=True)
         return "./tmp/prg < {} > tmp/output"
 
     raise(f"No problem solution found! Searched in {str(problem_dir / problem_name)}")
