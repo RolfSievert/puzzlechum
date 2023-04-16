@@ -36,9 +36,24 @@ def parse_args():
     parser.add_argument("-t", help="sum execution time over t iterations", type=int, default=0)
     return parser.parse_args()
 
-def get_test_files(test_dir):
-    ans = sorted(Path(test_dir).glob('*.ans'))
-    ins = sorted(Path(test_dir).glob('*.in'))
+def get_test_files(test_dir, problem_dir):
+    ans = []
+    ins = []
+
+    ans += test_dir.glob('*.ans')
+    ins += test_dir.glob('*.in')
+
+    # include local tests if they exist
+    local_test_dir = problem_dir / 'test'
+    if local_test_dir.is_dir():
+        ans += local_test_dir.glob('*.ans')
+        ins += local_test_dir.glob('*.in')
+
+    # TODO remove test files that don't have both .in and .ans
+
+    ans = sorted(ans)
+    ins = sorted(ins)
+
     return zip([str(x) for x in ins], [str(x) for x in ans])
 
 def check_create_tmp_dir():
@@ -147,7 +162,7 @@ def __main__():
     problem_dir = PROBLEM_ROOT / args.problem_name
 
     test_dir = Path('tests', args.problem_name)
-    testing_tuples = get_test_files(test_dir)
+    testing_tuples = get_test_files(test_dir, problem_dir)
 
     check_create_tmp_dir()
 
