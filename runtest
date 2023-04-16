@@ -36,25 +36,23 @@ def parse_args():
     parser.add_argument("-t", help="sum execution time over t iterations", type=int, default=0)
     return parser.parse_args()
 
-def get_test_files(test_dir, problem_dir):
+def get_test_files(test_dir, local_test_dir):
     ans = []
     ins = []
 
-    ans += test_dir.glob('*.ans')
-    ins += test_dir.glob('*.in')
+    for d in [test_dir, local_test_dir]:
+        if d.is_dir():
+            ans += d.glob('*.ans')
+            ins += d.glob('*.in')
 
-    # include local tests if they exist
-    local_test_dir = problem_dir / 'test'
-    if local_test_dir.is_dir():
-        ans += local_test_dir.glob('*.ans')
-        ins += local_test_dir.glob('*.in')
-
-    # TODO remove test files that don't have both .in and .ans
+    # remove test files that don't have both .in and .ans
+    ans = [a for a in ans if str(a.parent / a.stem) in [str(i.parent / i.stem) for i in ins]]
+    ins = [i for i in ins if str(i.parent / i.stem) in [str(a.parent / a.stem) for a in ans]]
 
     ans = sorted(ans)
     ins = sorted(ins)
 
-    return zip([str(x) for x in ins], [str(x) for x in ans])
+    return list(zip([str(x) for x in ins], [str(x) for x in ans]))
 
 def check_create_tmp_dir():
     if not TMP_PATH.is_dir():
@@ -72,19 +70,28 @@ def is_accepted_src_file(file_path, problem_name):
 def run_test(test_execution_command, in_file, times):
     # use format to insert test file path
     exec_command = test_execution_command.format(in_file)
+
     if times:
-        time_command = '/usr/bin/time --format="%e %U %S" sh -c '
-        exec_command = time_command + '"for i in {1.." + str(times) + "}; do " + exec_command + "; done"'
+        time_command = '/usr/bin/time --format="%e %U %S" sh -c'
+        loop = 'for i in {1..' + str(times) + '}; do ' + exec_command + '; done'
+        exec_command = f'{time_command} "{loop}"'
+
     stderr_output = subprocess.check_output([exec_command], stderr=subprocess.STDOUT, shell=True)
     if times and stderr_output:
         real, user, system = stderr_output.decode().split()
-        print('real {} user {} system {} U+S {:.2f}'.format(real, user, system, float(user) + float(system)))
+        print(f'{DIMMED}{in_file}{NULL}')
+        print('{}  real {} user {} system {} U+S {:.2f}{}'.format(DIMMED, real, user, system, float(user) + float(system), NULL))
 
-def compile_and_get_test_commands(problem_dir, problem_name):
+def get_source_files(problem_name):
+    problem_dir = PROBLEM_ROOT / problem_name
+    return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
+
+
+def compile_and_get_test_commands(source_files, problem_dir, problem_name):
     run_commands = []
 
     # TODO extend to handle more languages
-    for src in [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]:
+    for src in source_files:
         output_executable = TMP_PATH / f'prg_{src.suffix[1:]}'
 
         if src.suffix == '.cpp':
@@ -161,27 +168,33 @@ def __main__():
     args = parse_args()
     problem_dir = PROBLEM_ROOT / args.problem_name
 
-    test_dir = Path('tests', args.problem_name)
-    testing_tuples = get_test_files(test_dir, problem_dir)
+    test_dir = Path('./tests') / args.problem_name
+    local_test_dir = problem_dir / 'test'
+    testing_tuples = get_test_files(test_dir, local_test_dir)
 
     check_create_tmp_dir()
 
-    print(f'{DIMMED}Compiling source files... {NULL}')
-    test_commands = compile_and_get_test_commands(problem_dir, args.problem_name)
-    #print(f'{DIMMED}, {NULL}'.join([f'{src_file}' for _, src_file in test_commands]))
+    source_files = get_source_files(args.problem_name)
+    sources_string = ', '.join(str(src) for src in source_files)
+    print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
+    test_commands = compile_and_get_test_commands(source_files, problem_dir, args.problem_name)
 
-    print(f'{DIMMED}Running tests...\n{NULL}')
-    for test_command, src_file in test_commands:
-        success = True
-        for in_file, ans_file in testing_tuples:
-            run_test(test_command, in_file, args.t)
-            success = success and check_test(ans_file)
+    if not sum(1 for _ in testing_tuples):
+        print(f"No tests found! Make sure to add both .in and .ans files in '{test_dir}/' or '{local_test_dir}/'.")
+    else:
+        tests_string = ', '.join(str(test) for test, _ in testing_tuples)
+        print(f'{DIMMED}Running tests... [{tests_string}]\n{NULL}')
+        for test_command, src_file in test_commands:
+            success = True
+            for in_file, ans_file in testing_tuples:
+                run_test(test_command, in_file, args.t)
+                success = success and check_test(ans_file)
 
-        print(src_file)
-        if success:
-            print(f'{GREEN}  ✔ - PASSED{NULL}')
-        else:
-            print(f'{RED}  ✗ - FAILED{NULL}')
+            print(src_file)
+            if success:
+                print(f'{GREEN}  ✔ - PASSED{NULL}')
+            else:
+                print(f'{RED}  ✗ - FAILED{NULL}')
 
     # cleanup
     for x in TMP_PATH.iterdir():
