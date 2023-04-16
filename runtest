@@ -6,7 +6,6 @@
 Runs tests on provided problem id.
 """
 
-import sys
 from pathlib import Path
 import subprocess
 import argparse
@@ -15,9 +14,21 @@ RED = '\x1b[38;5;3m'
 BLUE = '\x1b[38;5;2m'
 GREEN = '\x1b[38;5;1m'
 YELLOW = '\x1b[38;5;4m'
+BOLD = '\x1b[1m'
+DIMMED = '\x1b[2m'
+ITALICS = '\x1b[3m'
 NULL = '\x1b[0m'
 
+ACCEPTED_SRC_SUFFIXES = [
+    '.cpp',
+    '.rs'
+]
+
 PROBLEM_ROOT = Path("./problems")
+
+TMP_PATH = Path("./.runtest_tmp")
+
+BINARY_EXECUTION_COMMAND = ' < {} > ' + f'{TMP_PATH / "output"}'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -31,40 +42,48 @@ def get_test_files(test_dir):
     return zip([str(x) for x in ins], [str(x) for x in ans])
 
 def check_create_tmp_dir():
-    tmp_dir = Path("tmp")
-    if not tmp_dir.is_dir():
+    if not TMP_PATH.is_dir():
         try:
-            tmp_dir.mkdir()
+            TMP_PATH.mkdir()
         except (FileExistsError, FileNotFoundError) as err:
-            print("Could not create {tmp.dir}:", err)
+            print("Could not create {TMP_PATH}:", err)
+
+def is_accepted_src_file(file_path, problem_name):
+    return \
+        file_path.is_file() \
+        and file_path.name.startswith(problem_name) \
+        and file_path.suffix in ACCEPTED_SRC_SUFFIXES
 
 def run_test(test_execution_command, in_file, times):
     # use format to insert test file path
     exec_command = test_execution_command.format(in_file)
     if times:
         time_command = '/usr/bin/time --format="%e %U %S" sh -c '
-        exec_command = time_command + "\"for i in {1.." + str(times) + "}; do " + exec_command + "; done\""
+        exec_command = time_command + '"for i in {1.." + str(times) + "}; do " + exec_command + "; done"'
     stderr_output = subprocess.check_output([exec_command], stderr=subprocess.STDOUT, shell=True)
     if times and stderr_output:
         real, user, system = stderr_output.decode().split()
-        print("real {} user {} system {} U+S {:.2f}".format(real, user, system, float(user) + float(system)))
+        print('real {} user {} system {} U+S {:.2f}'.format(real, user, system, float(user) + float(system)))
 
-def compile_and_get_test_command(problem_dir, problem_name):
+def compile_and_get_test_commands(problem_dir, problem_name):
+    run_commands = []
+
     # TODO extend to handle more languages
-    cpp_path = problem_dir / f'{problem_name}.cpp'
-    if cpp_path.is_file():
-        CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o tmp/prg -I {problem_dir}'
-        subprocess.call(f"{CC} {cpp_path}", shell=True)
-        return "./tmp/prg < {} > tmp/output"
+    for src in [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]:
+        output_executable = TMP_PATH / f'prg_{src.suffix[1:]}'
 
-    rust_path = problem_dir / f'{problem_name}.rs'
-    if rust_path.is_file():
-        # see https://open.kattis.com/help/rust
-        CC = f'rustc -o tmp/prg --crate-type bin --edition=2018'
-        subprocess.call(f"{CC} {rust_path}", shell=True)
-        return "./tmp/prg < {} > tmp/output"
+        if src.suffix == '.cpp':
+            CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o {output_executable} -I {problem_dir}'
+        elif src.suffix == '.rs':
+            # see https://open.kattis.com/help/rust
+            CC = f'rustc -o {output_executable} --crate-type bin --edition=2018'
 
-    raise(f"No problem solution found! Searched in {str(problem_dir / problem_name)}")
+        # build executable
+        subprocess.call(f'{CC} {src}', shell=True)
+
+        run_commands.append((f'{output_executable} {BINARY_EXECUTION_COMMAND}', src))
+
+    return run_commands
 
 def check_test(ans_file):
     # output logging
@@ -82,7 +101,7 @@ def check_test(ans_file):
 
     Print expected output.
     """
-    with open('tmp/output', 'r') as o_file, open(Path(ans_file), 'r') as a_file:
+    with open(TMP_PATH / 'output', 'r') as o_file, open(Path(ans_file), 'r') as a_file:
         for line, a_line in enumerate(a_file):
             # only check when input has a non-whitespace
             if not a_line.isspace():
@@ -132,18 +151,26 @@ def __main__():
 
     check_create_tmp_dir()
 
-    print("Compiling program...")
-    test_execution_command = compile_and_get_test_command(problem_dir, args.problem_name)
+    print(f'{DIMMED}Compiling source files... {NULL}')
+    test_commands = compile_and_get_test_commands(problem_dir, args.problem_name)
+    #print(f'{DIMMED}, {NULL}'.join([f'{src_file}' for _, src_file in test_commands]))
 
-    print("Running tests...")
-    success = True
-    for in_file, ans_file in testing_tuples:
-        run_test(test_execution_command, in_file, args.t)
-        success = success and check_test(ans_file)
+    print(f'{DIMMED}Running tests...\n{NULL}')
+    for test_command, src_file in test_commands:
+        success = True
+        for in_file, ans_file in testing_tuples:
+            run_test(test_command, in_file, args.t)
+            success = success and check_test(ans_file)
 
-    if success:
-        print("{}✔ - AC{}".format(GREEN, NULL))
-        # cleanup
-        subprocess.run('rm -rf tmp', shell=True)
+        print(src_file)
+        if success:
+            print(f'{GREEN}  ✔ - PASSED{NULL}')
+        else:
+            print(f'{RED}  ✗ - FAILED{NULL}')
+
+    # cleanup
+    for x in TMP_PATH.iterdir():
+        x.unlink()
+    TMP_PATH.rmdir()
 
 __main__()
