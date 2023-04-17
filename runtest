@@ -28,15 +28,14 @@ PROBLEM_ROOT = Path("./problems")
 
 TMP_PATH = Path("./.runtest_tmp")
 
-BINARY_EXECUTION_COMMAND = ' < {} > ' + f'{TMP_PATH / "output"}'
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("problem_name")
-    parser.add_argument("-t", help="sum execution time over t iterations", type=int, default=0)
+    parser.add_argument("-b", help="print benchmarks using hyperfine", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--cleanup", help="cleaning removes compilation and output folder '.runtest/'", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args()
 
-def get_test_files(test_dir, local_test_dir):
+def get_ins_and_ans(test_dir, local_test_dir):
     ans = []
     ins = []
 
@@ -67,47 +66,37 @@ def is_accepted_src_file(file_path, problem_name):
         and file_path.name.startswith(problem_name) \
         and file_path.suffix in ACCEPTED_SRC_SUFFIXES
 
-def run_test(test_execution_command, in_file, times):
-    # use format to insert test file path
-    exec_command = test_execution_command.format(in_file)
-
-    if times:
-        time_command = '/usr/bin/time --format="%e %U %S"'
-        loop = 'for i in {1..' + str(times) + '}; do (' + exec_command + ') >/dev/null 2>&1; done'
-        exec_command = f'{time_command} sh -c "{loop}"'
-
-    stderr_output = subprocess.check_output([exec_command], stderr=subprocess.STDOUT, shell=True)
-    if times and stderr_output:
-        real, user, system = stderr_output.decode().split()
-        print(f'{DIMMED}{in_file}{NULL}')
-        print('{}  real {} user {} system {} U+S {:.2f}{}'.format(DIMMED, real, user, system, float(user) + float(system), NULL))
-
 def get_source_files(problem_name):
     problem_dir = PROBLEM_ROOT / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
 
-
-def compile_and_get_test_commands(source_files, problem_dir, problem_name):
-    run_commands = []
-
+def compile_and_get_test_command(source_file, problem_dir, problem_name):
     # TODO extend to handle more languages
-    for src in source_files:
-        output_executable = TMP_PATH / f'prg_{src.suffix[1:]}'
+    output_executable = TMP_PATH / f'{source_file.stem}_{source_file.suffix[1:]}'
 
-        if src.suffix == '.cpp':
-            CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o {output_executable} -I {problem_dir}'
-        elif src.suffix == '.rs':
-            # see https://open.kattis.com/help/rust
-            CC = f'rustc -o {output_executable} --crate-type bin --edition=2018'
+    if source_file.suffix == '.cpp':
+        CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o {output_executable} -I {problem_dir}'
+    elif source_file.suffix == '.rs':
+        # see https://open.kattis.com/help/rust
+        CC = f'rustc -o {output_executable} --crate-type bin --edition=2018'
 
-        # build executable
-        subprocess.call(f'{CC} {src}', shell=True)
+    # build executable
+    output = subprocess.run(f'{CC} {source_file}', shell=True, capture_output=True)
 
-        run_commands.append((f'{output_executable} {BINARY_EXECUTION_COMMAND}', src))
+    if output.returncode != 0: # execution error
+        print()
+        print(f'{RED}{source_file} FAILED TO COMPILE!{NULL}')
+        print(output.stderr.decode("utf-8"))
+        return ''
+    else:
+        if output.stderr:
+            print()
+            print(f'{YELLOW}{source_file} has compile warnings:{NULL}')
+            print(output.stderr.decode("utf-8"))
 
-    return run_commands
+        return f'{output_executable} < {"{}"} > {"{}"}'
 
-def check_test(ans_file):
+def check_test(output_path, ans_path):
     # output logging
     stack_max_size = 16
     output_stack = []
@@ -123,7 +112,7 @@ def check_test(ans_file):
 
     Print expected output.
     """
-    with open(TMP_PATH / 'output', 'r') as o_file, open(Path(ans_file), 'r') as a_file:
+    with open(output_path, 'r') as o_file, open(Path(ans_path), 'r') as a_file:
         for line, a_line in enumerate(a_file):
             # only check when input has a non-whitespace
             if not a_line.isspace():
@@ -139,7 +128,7 @@ def check_test(ans_file):
                             print(f"{GREEN}{o}{NULL}", end='')
                         else:
                             print(o)
-                    print(f"{YELLOW}{ans_file}{NULL} failed at line {line+1}")
+                    print(f"{YELLOW}{ans_path}{NULL} failed at line {line+1}")
                     print(f"EXPECTED: {BLUE}{a_line}{NULL}")
                     # strip endlines etc with rstrip
                     print(f"{RED}{o_line}{NULL}", end='')
@@ -159,10 +148,13 @@ def check_test(ans_file):
         rest = o_file.read()
         if rest:
             success = False
-            print(f"{YELLOW}{ans_file}{NULL} got trailing output:");
+            print(f"{YELLOW}{ans_path}{NULL} got trailing output:");
             print(f"{RED}{rest}{NULL}\n")
 
     return success
+
+def benchmark(execution_cmd):
+    subprocess.run(f"hyperfine --shell=none --warmup 100 '{execution_cmd}'", shell=True)
 
 def __main__():
     args = parse_args()
@@ -170,35 +162,53 @@ def __main__():
 
     test_dir = Path('./tests') / args.problem_name
     local_test_dir = problem_dir / 'test'
-    testing_tuples = get_test_files(test_dir, local_test_dir)
+    ins_ans_pairs = get_ins_and_ans(test_dir, local_test_dir)
 
     check_create_tmp_dir()
 
     source_files = get_source_files(args.problem_name)
     sources_string = ', '.join(str(src) for src in source_files)
     print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
-    test_commands = compile_and_get_test_commands(source_files, problem_dir, args.problem_name)
 
-    if not sum(1 for _ in testing_tuples):
+    test_commands = []
+    for s in source_files:
+        test_command = compile_and_get_test_command(s, problem_dir, args.problem_name)
+        if test_command:
+            test_commands.append(test_command)
+
+    if not sum(1 for _ in ins_ans_pairs):
         print(f"No tests found! Make sure to add both .in and .ans files in '{test_dir}/' or '{local_test_dir}/'.")
     else:
-        tests_string = ', '.join(str(test) for test, _ in testing_tuples)
+        tests_string = ', '.join(str(test) for test, _ in ins_ans_pairs)
         print(f'{DIMMED}Running tests... [{tests_string}]\n{NULL}')
-        for test_command, src_file in test_commands:
-            success = True
-            for in_file, ans_file in testing_tuples:
-                run_test(test_command, in_file, args.t)
-                success = success and check_test(ans_file)
 
-            print(src_file)
+        for i, test_command in enumerate(test_commands):
+            src = source_files[i]
+            success = True
+            for i, (in_file, ans_file) in enumerate(ins_ans_pairs):
+                test_output_path = TMP_PATH / f'{src.stem}_{src.suffix[1:]}_{Path(in_file).stem}_output'
+                execution_cmd = test_command.format(in_file, test_output_path)
+                output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
+                if output.returncode != 0: # execution error
+                    print()
+                    print(f"{RED}{source_file} ERROR WHILE RUNNING TEST '{str(in_file)}'!{NULL}")
+                    print(output.stderr.decode("utf-8"))
+                else: # no execution error
+                    success = success and check_test(test_output_path, ans_file)
+
+                    if args.b:
+                        benchmark(execution_cmd)
+
+            print(src)
             if success:
                 print(f'{GREEN}  ✔ - PASSED{NULL}')
             else:
                 print(f'{RED}  ✗ - FAILED{NULL}')
 
     # cleanup
-    for x in TMP_PATH.iterdir():
-        x.unlink()
-    TMP_PATH.rmdir()
+    if args.cleanup:
+        for x in TMP_PATH.iterdir():
+            x.unlink()
+        TMP_PATH.rmdir()
 
 __main__()
