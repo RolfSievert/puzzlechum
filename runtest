@@ -72,9 +72,9 @@ def run_test(test_execution_command, in_file, times):
     exec_command = test_execution_command.format(in_file)
 
     if times:
-        time_command = '/usr/bin/time --format="%e %U %S" sh -c'
-        loop = 'for i in {1..' + str(times) + '}; do ' + exec_command + '; done'
-        exec_command = f'{time_command} "{loop}"'
+        time_command = '/usr/bin/time --format="%e %U %S"'
+        loop = 'for i in {1..' + str(times) + '}; do (' + exec_command + ') >/dev/null 2>&1; done'
+        exec_command = f'{time_command} sh -c "{loop}"'
 
     stderr_output = subprocess.check_output([exec_command], stderr=subprocess.STDOUT, shell=True)
     if times and stderr_output:
