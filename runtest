@@ -28,7 +28,7 @@ PROBLEM_ROOT = Path("./problems")
 
 TMP_PATH = Path("./.runtest_tmp")
 
-HYPERFINE_CMD = 'hyperfine --shell=none --warmup 10'
+HYPERFINE_CMD = 'hyperfine --shell=none'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -158,7 +158,6 @@ def benchmark_fastest(program_name, test_name, execution_cmd):
     md_path = TMP_PATH / f'{program_name}_{test_name}.md'
 
     execution_without_output = execution_cmd[:execution_cmd.find(' > ')]
-    print(execution_without_output)
 
     subprocess.run(f"{HYPERFINE_CMD} --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' '{execution_without_output}'", shell=True)
 
