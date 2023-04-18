@@ -28,11 +28,13 @@ PROBLEM_ROOT = Path("./problems")
 
 TMP_PATH = Path("./.runtest_tmp")
 
+HYPERFINE_CMD = 'hyperfine --shell=none --warmup 10'
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("problem_name")
-    parser.add_argument("-b", help="print benchmarks using hyperfine", action=argparse.BooleanOptionalAction)
-    parser.add_argument("--cleanup", help="cleaning removes compilation and output folder '.runtest/'", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument('problem_name')
+    parser.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
+    parser.add_argument('-n', '--no-cleanup', action='store_true', help="cleaning removes compilation and output folder '.runtest/'")
     return parser.parse_args()
 
 def get_ins_and_ans(test_dir, local_test_dir):
@@ -102,11 +104,10 @@ def check_test(output_path, ans_path):
     output_stack = []
     success = True
 
-    # compare output and answers
     """
     If all correct, don't print.
 
-    Print stack of previously corrected lines as green.
+    Print stack of previously correct lines as green.
 
     Print wrong output and all following as red.
 
@@ -130,7 +131,7 @@ def check_test(output_path, ans_path):
                             print(o)
                     print(f"{YELLOW}{ans_path}{NULL} failed at line {line+1}")
                     print(f"EXPECTED: {BLUE}{a_line}{NULL}")
-                    # strip endlines etc with rstrip
+
                     print(f"{RED}{o_line}{NULL}", end='')
                     print(f"{RED}{o_file.read()}{NULL}")
 
@@ -153,8 +154,53 @@ def check_test(output_path, ans_path):
 
     return success
 
-def benchmark(execution_cmd):
-    subprocess.run(f"hyperfine --shell=none --warmup 100 '{execution_cmd}'", shell=True)
+def benchmark_fastest(program_name, test_name, execution_cmd):
+    md_path = TMP_PATH / f'{program_name}_{test_name}.md'
+
+    execution_without_output = execution_cmd[:execution_cmd.find(' > ')]
+    print(execution_without_output)
+
+    subprocess.run(f"{HYPERFINE_CMD} --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' '{execution_without_output}'", shell=True)
+
+    with open(md_path, 'r') as f:
+        stats = f.readlines()[2]
+        fastest = stats.split('|')[3]
+
+        return fastest
+
+def run_and_print_benchmarks(benchmarks):
+    benchmarks = sorted(benchmarks, key= lambda b: b[0] + b[1])
+    names = sorted(set([x for x, _, _ in benchmarks]))
+    tests = sorted(set([x for _, x, _ in benchmarks]))
+
+    speeds = {}
+    for i, (bench_name, test_name, execution_cmd) in enumerate(benchmarks):
+        fastest = benchmark_fastest(bench_name, test_name, execution_cmd)
+
+        speeds[(bench_name, test_name)] = fastest
+
+    # build table template
+    max_test_name_length = len(max(names))
+    table_template = '{0:' + str(max_test_name_length + 2) + '}'
+    for i, _ in enumerate(names):
+        table_template += '{' + str(i + 1) + ':8}'
+
+    print(f'{BOLD}Fastest executions{NULL}')
+    header = ['']
+    for i, n in enumerate(names):
+        problem_num = f' ({i + 1})'
+        header.append(problem_num)
+        print(f'{problem_num} {n}')
+    print(table_template.format(*header))
+    for t in tests:
+        row = [t]
+        for i, n in enumerate(names):
+            s = ' '
+            if (n, t) in speeds:
+                s = speeds[(n, t)]
+            row.append(s)
+
+        print(table_template.format(*row))
 
 def __main__():
     args = parse_args()
@@ -179,13 +225,16 @@ def __main__():
     if not sum(1 for _ in ins_ans_pairs):
         print(f"No tests found! Make sure to add both .in and .ans files in '{test_dir}/' or '{local_test_dir}/'.")
     else:
+
+        # tuples of name, test name, execution command
+        benchmarks = []
         tests_string = ', '.join(str(test) for test, _ in ins_ans_pairs)
         print(f'{DIMMED}Running tests... [{tests_string}]\n{NULL}')
 
         for i, test_command in enumerate(test_commands):
             src = source_files[i]
             success = True
-            for i, (in_file, ans_file) in enumerate(ins_ans_pairs):
+            for in_file, ans_file in ins_ans_pairs:
                 test_output_path = TMP_PATH / f'{src.stem}_{src.suffix[1:]}_{Path(in_file).stem}_output'
                 execution_cmd = test_command.format(in_file, test_output_path)
                 output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
@@ -196,8 +245,8 @@ def __main__():
                 else: # no execution error
                     success = success and check_test(test_output_path, ans_file)
 
-                    if args.b:
-                        benchmark(execution_cmd)
+                    if args.benchmark:
+                        benchmarks.append((src.name, Path(in_file).stem, execution_cmd))
 
             print(src)
             if success:
@@ -205,8 +254,12 @@ def __main__():
             else:
                 print(f'{RED}  ✗ - FAILED{NULL}')
 
+        if args.benchmark:
+            print()
+            run_and_print_benchmarks(benchmarks)
+
     # cleanup
-    if args.cleanup:
+    if not args.no_cleanup:
         for x in TMP_PATH.iterdir():
             x.unlink()
         TMP_PATH.rmdir()
