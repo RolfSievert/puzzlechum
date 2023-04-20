@@ -77,7 +77,9 @@ def compile_and_get_test_command(source_file, problem_dir, problem_name):
     output_executable = TMP_PATH / f'{source_file.stem}_{source_file.suffix[1:]}'
 
     if source_file.suffix == '.cpp':
-        CC = f'g++ -std=c++17 -O2 -Wall -pedantic -o {output_executable} -I {problem_dir}'
+        # see https://open.kattis.com/help/cpp
+        CC = f'g++ -g -O2 -std=gnu++17 -static -lrt -Wl,--whole-archive -lpthread -Wl,--no-whole-archive'
+        CC += f' -o {output_executable} -I {problem_dir}'
     elif source_file.suffix == '.rs':
         # see https://open.kattis.com/help/rust
         CC = f'rustc -o {output_executable} --crate-type bin --edition=2018'
