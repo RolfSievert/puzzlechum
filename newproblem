@@ -25,7 +25,7 @@ DEFAULT_LANGUAGE = TEMPLATES[0]
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        prog='new_problem',
+        prog='newproblem',
         description='Download given kattis test cases, creates problem folder, and copies problem template to that folder')
 
     parser.add_argument('problem_name', type=str, help='Kattis problem ID, check the url after \'problems/\'')
