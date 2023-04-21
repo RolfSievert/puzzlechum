@@ -10,7 +10,7 @@ import pyperclip
 def parse_args():
     parser = argparse.ArgumentParser(
         prog='toclipboard',
-        description='Replace includes in given file and copy it to clipboard for quick uploads.')
+        description='Replace includes in given file (and recursive ones) and copy it to clipboard for quick uploads. NOTE: Files using the same local includes are not supported!')
 
     parser.add_argument('file_path', type=Path, help='path to file to upload')
 
@@ -29,6 +29,9 @@ def cpp_content(content, file_path):
 
             # clean string from pragma
             include_content = include_content.replace('#pragma once', '')
+
+            # fetch recursive includes
+            include_content = cpp_content(include_content, include_path);
 
             content = content.replace(i, include_content)
 
