@@ -245,8 +245,12 @@ def __main__():
                 output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
                 if output.returncode != 0: # execution error
                     print()
-                    print(f"{RED}{source_file} ERROR WHILE RUNNING TEST '{str(in_file)}'!{NULL}")
+                    print(f"{RED}{src} ERROR WHILE RUNNING TEST '{str(in_file)}'!{NULL}")
                     print(output.stderr.decode("utf-8"))
+                    print(output.stdout.decode("utf-8"))
+                    print('while running:')
+                    print(f'{DIMMED}{execution_cmd}{NULL}')
+                    exit(1)
                 else: # no execution error
                     success = success and check_test(test_output_path, ans_file)
 
