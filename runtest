@@ -203,6 +203,10 @@ def run_and_print_benchmarks(benchmarks):
 
         print(table_template.format(*row))
 
+def has_hyperfine():
+    from shutil import which
+    return which('hyperfine') is not None
+
 def __main__():
     args = parse_args()
     problem_dir = PROBLEM_ROOT / args.problem_name
@@ -257,6 +261,11 @@ def __main__():
 
         if args.benchmark:
             print()
+
+            if not has_hyperfine():
+                print(f'{BOLD}hyperfine{NULL} is not installed on your system! It is required to benchmark tests.')
+                exit(1)
+
             run_and_print_benchmarks(benchmarks)
 
     # cleanup
