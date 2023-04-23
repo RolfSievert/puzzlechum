@@ -37,11 +37,11 @@ def parse_args():
     parser.add_argument('-n', '--no-cleanup', action='store_true', help="cleaning removes compilation and output folder '.runtest/'")
     return parser.parse_args()
 
-def get_ins_and_ans(test_dir, local_test_dir):
+def get_ins_and_ans(test_dirs):
     ans = []
     ins = []
 
-    for d in [test_dir, local_test_dir]:
+    for d in test_dirs:
         if d.is_dir():
             ans += d.glob('*.ans')
             ins += d.glob('*.in')
@@ -212,8 +212,8 @@ def __main__():
     problem_dir = PROBLEM_ROOT / args.problem_name
 
     test_dir = Path('./tests') / args.problem_name
-    local_test_dir = problem_dir / 'test'
-    ins_ans_pairs = get_ins_and_ans(test_dir, local_test_dir)
+    test_dirs = [test_dir, problem_dir / 'test', problem_dir / 'tests']
+    ins_ans_pairs = get_ins_and_ans(test_dirs)
 
     check_create_tmp_dir()
 
@@ -228,7 +228,7 @@ def __main__():
             test_commands.append(test_command)
 
     if not sum(1 for _ in ins_ans_pairs):
-        print(f"No tests found! Make sure to add both .in and .ans files in '{test_dir}/' or '{local_test_dir}/'.")
+        print(f"No tests found! Make sure to add both .in and .ans files to any of the folders '{test_dirs}'.")
     else:
 
         # tuples of name, test name, execution command
