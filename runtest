@@ -24,11 +24,12 @@ ACCEPTED_SRC_SUFFIXES = [
     '.rs'
 ]
 
-PROBLEM_ROOT = Path("./problems")
+PROBLEM_ROOT = Path(__file__).parent / 'problems'
+TESTS_ROOT = Path(__file__).parent / 'tests'
 
-TMP_PATH = Path("./.runtest_tmp")
+TMP_PATH = Path(__file__).parent / '.runtest_tmp'
 
-HYPERFINE_CMD = 'hyperfine --shell=none'
+HYPERFINE_CMD = 'hyperfine'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -211,7 +212,7 @@ def __main__():
     args = parse_args()
     problem_dir = PROBLEM_ROOT / args.problem_name
 
-    test_dir = Path('./tests') / args.problem_name
+    test_dir = TESTS_ROOT / args.problem_name
     test_dirs = [test_dir, problem_dir / 'test', problem_dir / 'tests']
     ins_ans_pairs = get_ins_and_ans(test_dirs)
 
