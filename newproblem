@@ -51,8 +51,6 @@ def download_tests(problem_name):
 
     if tests_dir.is_dir():
         return False
-    else:
-        tests_dir.mkdir()
 
     zip_path = Path('samples.zip')
 
@@ -60,13 +58,17 @@ def download_tests(problem_name):
         with open(zip_path, 'wb') as file:
             url = TESTS_URL.format(problem_name)
             response = requests.get(url)
+            if response.status_code >= 400:
+                raise Exception(response.reason)
             file.write(response.content)
     except:
-        raise('Could not download test samples!' +
+        raise Exception('Could not download test samples! ' +
               f"Does '{problem_name}' really exist at kattis, and do you have an internet connection?")
 
     # extract sample input to tests folder
     f = zipfile.ZipFile(zip_path)
+
+    tests_dir.mkdir()
     f.extractall(tests_dir)
 
     # remove zip
