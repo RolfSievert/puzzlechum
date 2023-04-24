@@ -29,7 +29,7 @@ TESTS_ROOT = Path(__file__).parent / 'tests'
 
 TMP_PATH = Path(__file__).parent / '.runtest_tmp'
 
-HYPERFINE_CMD = 'hyperfine'
+HYPERFINE = 'hyperfine'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -157,12 +157,13 @@ def check_test(output_path, ans_path):
 
     return success
 
-def benchmark_fastest(program_name, test_name, execution_cmd):
+def benchmark_fastest(program_name, input_file, execution_cmd):
+    test_name = Path(input_file).stem
     md_path = TMP_PATH / f'{program_name}_{test_name}.md'
 
-    execution_without_output = execution_cmd[:execution_cmd.find(' > ')]
+    execution_without_input_output = execution_cmd[:execution_cmd.find(' < ')]
 
-    subprocess.run(f"{HYPERFINE_CMD} --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' '{execution_without_output}'", shell=True)
+    subprocess.run(f"{HYPERFINE} --shell=none --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' --input '{input_file}' '{execution_without_input_output}'", shell=True)
 
     with open(md_path, 'r') as f:
         stats = f.readlines()[2]
@@ -173,13 +174,13 @@ def benchmark_fastest(program_name, test_name, execution_cmd):
 def run_and_print_benchmarks(benchmarks):
     benchmarks = sorted(benchmarks, key= lambda b: b[0] + b[1])
     names = sorted(set([x for x, _, _ in benchmarks]))
-    tests = sorted(set([x for _, x, _ in benchmarks]))
+    tests = sorted(set([Path(x).stem for _, x, _ in benchmarks]))
 
     speeds = {}
-    for i, (bench_name, test_name, execution_cmd) in enumerate(benchmarks):
-        fastest = benchmark_fastest(bench_name, test_name, execution_cmd)
+    for i, (bench_name, input_file, execution_cmd) in enumerate(benchmarks):
+        fastest = benchmark_fastest(bench_name, input_file, execution_cmd)
 
-        speeds[(bench_name, test_name)] = fastest
+        speeds[(bench_name, Path(input_file).stem)] = fastest
 
     # build table template
     max_test_name_length = len(max(names))
@@ -256,7 +257,7 @@ def __main__():
                     success = success and check_test(test_output_path, ans_file)
 
                     if args.benchmark:
-                        benchmarks.append((src.name, Path(in_file).stem, execution_cmd))
+                        benchmarks.append((src.name, in_file, execution_cmd))
 
             print(src)
             if success:
