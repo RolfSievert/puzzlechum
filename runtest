@@ -166,10 +166,12 @@ def benchmark_fastest(program_name, input_file, execution_cmd):
     subprocess.run(f"{HYPERFINE} --shell=none --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' --input '{input_file}' '{execution_without_input_output}'", shell=True)
 
     with open(md_path, 'r') as f:
-        stats = f.readlines()[2]
-        fastest = stats.split('|')[3]
+        lines = f.readlines()
+        unit = lines[0].split('|')[3][6:][:-2].strip()
+        stats = lines[2]
+        fastest = stats.split('|')[3].strip()
 
-        return fastest
+        return f'{fastest} {unit}'
 
 def run_and_print_benchmarks(benchmarks):
     benchmarks = sorted(benchmarks, key= lambda b: b[0] + b[1])
@@ -183,7 +185,7 @@ def run_and_print_benchmarks(benchmarks):
         speeds[(bench_name, Path(input_file).stem)] = fastest
 
     # build table template
-    max_test_name_length = len(max(names))
+    max_test_name_length = len(max(tests, key=len))
     table_template = '{0:' + str(max_test_name_length + 2) + '}'
     for i, _ in enumerate(names):
         table_template += '{' + str(i + 1) + ':8}'
