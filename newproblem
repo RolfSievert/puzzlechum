@@ -17,7 +17,7 @@ PROBLEMS_ROOT = Path(__file__).parent / 'problems'
 TESTS_ROOT = Path(__file__).parent / 'tests'
 TEMPLATES_ROOT = Path(__file__).parent / 'templates'
 
-TEMPLATES = ['cpp', 'rs', 'py', 'js', 'ts', 'c', 'c#']
+TEMPLATES = ['cpp', 'rs']
 
 TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
@@ -26,7 +26,7 @@ DEFAULT_LANGUAGE = TEMPLATES[0]
 def parse_args():
     parser = argparse.ArgumentParser(
         prog='newproblem',
-        description='Download given kattis test cases, creates problem folder, and copies problem template to that folder')
+        description='Download given kattis test cases, create problem folder, and copy problem template to that folder')
 
     parser.add_argument('problem_name', type=str, help='Kattis problem ID, check the url after \'problems/\'')
     parser.add_argument('--template', choices=TEMPLATES, default=DEFAULT_LANGUAGE, help='what template to use, must exist in \'templates/\' folder')

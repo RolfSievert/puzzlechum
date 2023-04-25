@@ -35,7 +35,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('problem_name')
     parser.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
-    parser.add_argument('-n', '--no-cleanup', action='store_true', help="cleaning removes compilation and output folder '.runtest/'")
+    parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in '.runtest_tmp/'")
     return parser.parse_args()
 
 def get_ins_and_ans(test_dirs):
