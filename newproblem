@@ -13,9 +13,10 @@ import argparse
 import zipfile
 
 # Root folders
-PROBLEMS_ROOT = Path(__file__).parent / 'problems'
-TESTS_ROOT = Path(__file__).parent / 'tests'
-TEMPLATES_ROOT = Path(__file__).parent / 'templates'
+# call .resolve() if newproblem is symlinked
+PROBLEMS_ROOT = Path(__file__).resolve().parent / 'problems'
+TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
+TEMPLATES_ROOT = Path(__file__).resolve().parent / 'templates'
 
 TEMPLATES = ['cpp', 'rs']
 

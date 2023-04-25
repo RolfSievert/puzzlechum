@@ -24,10 +24,10 @@ ACCEPTED_SRC_SUFFIXES = [
     '.rs'
 ]
 
-PROBLEM_ROOT = Path(__file__).parent / 'problems'
-TESTS_ROOT = Path(__file__).parent / 'tests'
-
-TMP_PATH = Path(__file__).parent / '.runtest_tmp'
+# call .resolve() to make symlinking of scripts possible
+PROBLEM_ROOT = Path(__file__).resolve().parent / 'problems'
+TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
+TMP_PATH = Path(__file__).resolve().parent / '.runtest_tmp'
 
 HYPERFINE = 'hyperfine'
 
