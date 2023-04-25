@@ -188,7 +188,7 @@ def run_and_print_benchmarks(benchmarks):
     max_test_name_length = len(max(tests, key=len))
     table_template = '{0:' + str(max_test_name_length + 2) + '}'
     for i, _ in enumerate(names):
-        table_template += '{' + str(i + 1) + ':8}'
+        table_template += '{' + str(i + 1) + ':10}'
 
     print(f'{BOLD}Fastest executions{NULL}')
     header = ['']
