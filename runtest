@@ -129,19 +129,18 @@ def check_test(output_path, ans_path):
                     success = False
                     for o in output_stack:
                         if o == output_stack[-1]:
-                            print(f"{GREEN}{o}{NULL}", end='')
+                            print(f'{GREEN}{o}{NULL}')
                         else:
                             print(o)
-                    print(f"{YELLOW}{ans_path}{NULL} failed at line {line+1}")
-                    print(f"EXPECTED: {BLUE}{a_line}{NULL}")
+                    print(f'{YELLOW}{ans_path}{NULL} failed at line {line+1}')
+                    print(f'EXPECTED: {BLUE}{a_line.rstrip()}{NULL}')
 
-                    print(f"{RED}{o_line}{NULL}", end='')
-                    print(f"{RED}{o_file.read()}{NULL}")
+                    print(f'{RED}{o_line}{o_file.read()}{NULL}')
 
                     # Print rest of expected output
                     a_dump = a_file.read()
                     if (a_dump):
-                        print("ANSWERS:")
+                        print('ANSWERS:')
                         print(a_dump)
 
                 # save output
@@ -152,8 +151,9 @@ def check_test(output_path, ans_path):
         rest = o_file.read()
         if rest:
             success = False
-            print(f"{YELLOW}{ans_path}{NULL} got trailing output:");
-            print(f"{RED}{rest}{NULL}\n")
+            print(f'{YELLOW}{ans_path}{NULL} got trailing output:');
+            print(f'{RED}{rest}{NULL}')
+            print()
 
     return success
 
@@ -238,7 +238,8 @@ def __main__():
         # tuples of name, test name, execution command
         benchmarks = []
         tests_string = ', '.join(str(test) for test, _ in ins_ans_pairs)
-        print(f'{DIMMED}Running tests... [{tests_string}]\n{NULL}')
+        print(f'{DIMMED}Running tests... [{tests_string}]{NULL}')
+        print()
 
         for i, test_command in enumerate(test_commands):
             src = source_files[i]
@@ -256,7 +257,7 @@ def __main__():
                     print(f'{DIMMED}{execution_cmd}{NULL}')
                     exit(1)
                 else: # no execution error
-                    success = success and check_test(test_output_path, ans_file)
+                    success = check_test(test_output_path, ans_file) and success
 
                     if args.benchmark:
                         benchmarks.append((src.name, in_file, execution_cmd))
