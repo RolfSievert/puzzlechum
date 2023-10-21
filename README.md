@@ -7,7 +7,7 @@ Helper scripts to create, test, and benchmark your algorithms! (also downloads k
 
 ## Optional requirements
 
-- [hyperfine](https://github.com/sharkdp/hyperfine) - only for required for benchmarking!
+- [hyperfine](https://github.com/sharkdp/hyperfine) - only required for benchmarking!
 
 
 ## Usage
