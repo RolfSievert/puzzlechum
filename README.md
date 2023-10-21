@@ -29,14 +29,14 @@ Just clone this repo (there are no prerequisites). See the following commands to
 ### Examples
 
 `newproblem` example:
-```sh
+```
 ./newproblem triarea
 Copied template to '/home/rolfsievert/projects/puzzlechum/problems/triarea/triarea.cpp'
 Test samples successfully downloaded to '/home/rolfsievert/projects/puzzlechum/tests/triarea'
 ```
 
 `runtest` example:
-```sh
+```
 ./runtest twosum --benchmark
 Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
 Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
@@ -58,7 +58,7 @@ sample2  0.6 ms  1.0 ms
 
 Failing `runtest` example:
 
-```sh
+```
 ./runtest twosum
 Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
 Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
