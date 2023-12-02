@@ -6,9 +6,10 @@
 Runs tests on provided problem id.
 """
 
-from pathlib import Path
-import subprocess
 import argparse
+import subprocess
+
+from pathlib import Path
 
 RED = '\x1b[38;5;3m'
 BLUE = '\x1b[38;5;2m'
@@ -21,7 +22,8 @@ NULL = '\x1b[0m'
 
 ACCEPTED_SRC_SUFFIXES = [
     '.cpp',
-    '.rs'
+    '.rs',
+    '.py'
 ]
 
 # call .resolve() to make symlinking of scripts possible
@@ -73,9 +75,10 @@ def get_source_files(problem_name):
     problem_dir = PROBLEM_ROOT / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
 
-def compile_and_get_test_command(source_file, problem_dir, problem_name):
+def compile_and_get_test_command(source_file, problem_dir):
     # TODO extend to handle more languages
-    output_executable = TMP_PATH / f'{source_file.stem}_{source_file.suffix[1:]}'
+    output_name = f'{source_file.stem}_{source_file.suffix[1:]}'
+    output_executable = TMP_PATH / output_name
 
     if source_file.suffix == '.cpp':
         # see https://open.kattis.com/help/cpp
@@ -84,22 +87,36 @@ def compile_and_get_test_command(source_file, problem_dir, problem_name):
     elif source_file.suffix == '.rs':
         # see https://open.kattis.com/help/rust
         CC = f'rustc -o {output_executable} --crate-type bin --edition=2018'
+    elif source_file.suffix == '.py':
+        # see https://open.kattis.com/languages/python3
+        try:
+            subprocess.run(["pypy3", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except:
+            raise Exception('Executing python code requires `pypy3` (as that is what kattis does, see https://open.kattis.com/languages/python3)')
 
-    # build executable
-    output = subprocess.run(f'{CC} {source_file}', shell=True, capture_output=True)
+        CC = f'pypy3'
+    else:
+        raise Exception(f'Programming language not supported: {source_file.suffix}')
 
-    if output.returncode != 0: # execution error
+    output = None
+    if source_file.suffix not in ('.py'):
+        output = subprocess.run(f'{CC} {source_file}', shell=True, capture_output=True)
+
+    if output and output.returncode != 0: # execution error
         print()
         print(f'{RED}{source_file} FAILED TO COMPILE!{NULL}')
         print(output.stderr.decode("utf-8"))
         return ''
     else:
-        if output.stderr:
+        if output and output.stderr:
             print()
             print(f'{YELLOW}{source_file} has compile warnings:{NULL}')
             print(output.stderr.decode("utf-8"))
 
-        return f'{output_executable} < {"{}"} > {"{}"}'
+        if source_file.suffix == '.py':
+            return f'pypy3 {source_file} < {"{}"} > {"{}"}'
+        else:
+            return f'{output_executable} < {"{}"} > {"{}"}'
 
 def check_test(output_path, ans_path):
     # output logging
@@ -227,7 +244,7 @@ def __main__():
 
     test_commands = []
     for s in source_files:
-        test_command = compile_and_get_test_command(s, problem_dir, args.problem_name)
+        test_command = compile_and_get_test_command(s, problem_dir)
         if test_command:
             test_commands.append(test_command)
 

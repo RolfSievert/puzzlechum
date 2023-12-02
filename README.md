@@ -2,7 +2,7 @@
 
 Helper scripts to create, test, and benchmark your algorithms! (also downloads kattis test samples automatically ;) )
 
-*(Only works for rust and c++ currently, but feel free to open an Issue for further language support)*
+*(Only works for **rust**, **c++** and **python** currently, but feel free to open an Issue for further language support)*
 
 
 ## Optional requirements
@@ -14,7 +14,7 @@ Helper scripts to create, test, and benchmark your algorithms! (also downloads k
 
 Just clone this repo (there are no prerequisites). See the following commands to get started:
 
-- `./newproblem [-h, --help] [--template {cpp,rs}] problem_name`
+- `./newproblem [-h, --help] [--template {cpp,rs,py}] problem_name`
     - Creates file in `problems/` folder based on template in `templates/`
     - Automatically downloads tests from `open.kattis.com/problems/[problem_name]` to `tests/[problem_name]/`
 
@@ -84,6 +84,7 @@ problems/
             sample1.ans
         problem_name*.cpp
         problem_name*.rs
+        problem_name*.py
     ...
 tests/
     problem_name/

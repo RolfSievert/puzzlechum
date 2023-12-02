@@ -18,7 +18,7 @@ PROBLEMS_ROOT = Path(__file__).resolve().parent / 'problems'
 TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
 TEMPLATES_ROOT = Path(__file__).resolve().parent / 'templates'
 
-TEMPLATES = ['cpp', 'rs']
+TEMPLATES = ['cpp', 'rs', 'py']
 
 TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
@@ -34,7 +34,7 @@ def parse_args():
 
     return parser.parse_args()
 
-def create_missing_folders(problem_name):
+def create_missing_folders():
     if not PROBLEMS_ROOT.is_dir():
         PROBLEMS_ROOT.mkdir()
 
@@ -91,7 +91,7 @@ def copy_template(template_suffix, destination):
     if not problem_path.is_file():
         template = TEMPLATES_ROOT / f'template.{template_suffix}'
         if not template.is_file():
-            raise(f"Template '{template}' does not exist! Perhaps create one?")
+            raise Exception(f"Template '{template}' does not exist! Perhaps create one?")
         else:
             shutil.copyfile(template, problem_path)
 
@@ -102,7 +102,7 @@ def copy_template(template_suffix, destination):
 if __name__ == '__main__':
     args = parse_args()
 
-    create_missing_folders(args.problem_name)
+    create_missing_folders()
     create_problem_folders(args.problem_name)
 
     problem_file = problem_path(args.problem_name, args.template)
