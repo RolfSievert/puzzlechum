@@ -71,6 +71,12 @@ def is_accepted_src_file(file_path, problem_name):
         and file_path.name.startswith(problem_name) \
         and file_path.suffix in ACCEPTED_SRC_SUFFIXES
 
+def match_problems_folder(problem_name: str) -> tuple[Path, ...]:
+    return tuple(p for p in PROBLEM_ROOT.glob(f'*{problem_name}*') if p.is_dir())
+
+def valid_problem_name(problem_name: str) -> bool:
+    return (PROBLEM_ROOT / problem_name).is_dir()
+
 def get_source_files(problem_name):
     problem_dir = PROBLEM_ROOT / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
@@ -230,8 +236,24 @@ def has_hyperfine():
 
 def __main__():
     args = parse_args()
-    problem_dir = PROBLEM_ROOT / args.problem_name
 
+    if not valid_problem_name(args.problem_name):
+        problem_suggestions = match_problems_folder(args.problem_name)
+
+        # auto-select problem
+        if len(problem_suggestions) == 1:
+            args.problem_name = problem_suggestions[0].name
+            print(f'No such problem exists, using only match: {args.problem_name}\n')
+        # print error with suggestions
+        else:
+            print(f'No such problem exists: {(PROBLEM_ROOT / args.problem_name).name}')
+            if len(problem_suggestions):
+                problems_string = '\n\t'.join(str(p.name) for p in problem_suggestions)
+                print(f'\nDid you mean any of:\n\t{problems_string}')
+
+            exit(1)
+
+    problem_dir = PROBLEM_ROOT / args.problem_name
     test_dir = TESTS_ROOT / args.problem_name
     test_dirs = [test_dir, problem_dir / 'test', problem_dir / 'tests']
     ins_ans_pairs = get_ins_and_ans(test_dirs)
@@ -252,7 +274,6 @@ def __main__():
         test_folder_paths = "', \n\t'".join(str(t) for t in test_dirs)
         print(f"No tests found! Make sure to add both .in and .ans files to any of the folders:\n\t'{test_folder_paths}'")
     else:
-
         # tuples of name, test name, execution command
         benchmarks = []
         tests_string = ', '.join(str(test) for test, _ in ins_ans_pairs)
