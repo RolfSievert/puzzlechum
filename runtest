@@ -361,7 +361,7 @@ def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str)
     # print table header
     print(f"{'':{column_offset}}", end='')
     for i in range(len(names)):
-        print(f"{f' ({i + 1})':{column_width}}", end='')
+        print(f"{f'({i + 1})':{column_width}}", end='')
     print()
 
     for t in tests:
