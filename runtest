@@ -136,13 +136,13 @@ def printFailure(
         o_file: TextIOWrapper,
         a_file: TextIOWrapper):
 
-    print(f'{YELLOW}{str(ans_path.relative_to(Path.cwd()))}{NULL}')
+    print(f'{YELLOW}{ans_path.relative_to(Path.cwd())}{NULL}')
     for o in output_stack:
         print(o.rstrip())
     print(f'{RED}FAIL!{NULL}')
     print(f'    at: {RED}line {line+1}{NULL}')
     print(f'    got: {RED}{output.rstrip()}{NULL}')
-    print(f'    expected: {BLUE}{expected.rstrip()}{NULL}')
+    print(f'    expected: {GREEN}{expected.rstrip()}{NULL}')
 
     trailing_output = o_file.read().split('\n')
     output_joined = '\n'.join(trailing_output[:5])
@@ -303,10 +303,10 @@ def __main__():
         print(f'{DIMMED}Running tests... [{tests_string}]{NULL}')
         print()
 
-        for i, test_command in enumerate(test_commands):
-            src = source_files[i]
-            success = True
-            for in_file, ans_file in ins_ans_pairs:
+        for src_index, test_command in enumerate(test_commands):
+            src = source_files[src_index]
+            success = [True for _ in ins_ans_pairs]
+            for i, (in_file, ans_file) in enumerate(ins_ans_pairs):
                 test_output_path = TMP_PATH / f'{src.stem}_{src.suffix[1:]}_{Path(in_file).stem}_output'
                 execution_cmd = test_command.format(in_file, test_output_path)
                 output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
@@ -319,16 +319,18 @@ def __main__():
                     print(f'{DIMMED}{execution_cmd}{NULL}')
                     exit(1)
                 else: # no execution error
-                    success = check_test(test_output_path, ans_file) and success
+                    success[i] = check_test(test_output_path, ans_file) and success[i]
 
                     if args.benchmark:
                         benchmarks.append((src.name, in_file, execution_cmd))
 
-            print(str(Path(src).relative_to(Path.cwd())))
-            if success:
-                print(f'{GREEN}  ✔ - PASSED{NULL}')
-            else:
-                print(f'{RED}  ✗ - FAILED{NULL}')
+            print(f'{BLUE}{Path(src).relative_to(Path.cwd())}{NULL}')
+            for i, s in enumerate(success):
+                in_path: Path = Path(ins_ans_pairs[i][0]).relative_to(Path.cwd())
+                if s:
+                    print(f'{GREEN}  ✔ - PASSED{NULL} {in_path}')
+                else:
+                    print(f'{RED}  ✗ - FAILED{NULL} {in_path}')
 
         if args.benchmark:
             print()
