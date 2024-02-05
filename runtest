@@ -85,6 +85,12 @@ def get_source_files(problem_name):
     problem_dir = PROBLEM_ROOT / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
 
+def relativeCwd(path: str | Path) -> str:
+    if (path is Path):
+        return str(path.relative_to(Path.cwd()))
+    else:
+        return str(Path(path).relative_to(Path.cwd()))
+
 def compile_and_get_test_command(source_file, problem_dir):
     # TODO extend to handle more languages
     output_name = f'{source_file.stem}_{source_file.suffix[1:]}'
@@ -128,7 +134,7 @@ def compile_and_get_test_command(source_file, problem_dir):
             return f'{output_executable} < {"{}"} > {"{}"}'
 
 def printFailure(
-        ans_path: Path,
+        ans_path: str,
         output_stack: list[str],
         line: int,
         output: str,
@@ -136,7 +142,7 @@ def printFailure(
         o_file: TextIOWrapper,
         a_file: TextIOWrapper):
 
-    print(f'{YELLOW}{ans_path.relative_to(Path.cwd())}{NULL}')
+    print(f'{YELLOW}{relativeCwd(ans_path)}{NULL}')
     for o in output_stack:
         print(o.rstrip())
     print(f'{RED}FAIL!{NULL}')
@@ -187,7 +193,7 @@ def check_test(output_path, ans_path):
                 # lines are not the same (excluding whitespace)
                 if a_line.split() != o_line.split():
                     success = False
-                    printFailure(Path(ans_path), output_stack, line, o_line, a_line, o_file, a_file)
+                    printFailure(ans_path, output_stack, line, o_line, a_line, o_file, a_file)
 
                 # save output
                 output_stack.append(o_line)
@@ -284,7 +290,7 @@ def __main__():
     check_create_tmp_dir()
 
     source_files = get_source_files(args.problem_name)
-    sources_string = ', '.join(str(src) for src in source_files)
+    sources_string = ', '.join(relativeCwd(src) for src in source_files)
     print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
 
     test_commands = []
@@ -299,12 +305,12 @@ def __main__():
     else:
         # tuples of name, test name, execution command
         benchmarks = []
-        tests_string = ', '.join(str(test) for test, _ in ins_ans_pairs)
+        tests_string = ', '.join(relativeCwd(test) for test, _ in ins_ans_pairs)
         print(f'{DIMMED}Running tests... [{tests_string}]{NULL}')
         print()
 
         for src_index, test_command in enumerate(test_commands):
-            src = source_files[src_index]
+            src: Path = source_files[src_index]
             success = [True for _ in ins_ans_pairs]
             for i, (in_file, ans_file) in enumerate(ins_ans_pairs):
                 test_output_path = TMP_PATH / f'{src.stem}_{src.suffix[1:]}_{Path(in_file).stem}_output'
@@ -312,7 +318,7 @@ def __main__():
                 output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
                 if output.returncode != 0: # execution error
                     print()
-                    print(f"{RED}{src} ERROR WHILE RUNNING TEST '{str(in_file)}'!{NULL}")
+                    print(f"{RED}{relativeCwd(src)} ERROR WHILE RUNNING TEST '{relativeCwd(in_file)}'!{NULL}")
                     print(output.stderr.decode("utf-8"))
                     print(output.stdout.decode("utf-8"))
                     print('while running:')
@@ -324,9 +330,9 @@ def __main__():
                     if args.benchmark:
                         benchmarks.append((src.name, in_file, execution_cmd))
 
-            print(f'{BLUE}{Path(src).relative_to(Path.cwd())}{NULL}')
+            print(f'{BLUE}{relativeCwd(src)}{NULL}')
             for i, s in enumerate(success):
-                in_path: Path = Path(ins_ans_pairs[i][0]).relative_to(Path.cwd())
+                in_path: str = relativeCwd(ins_ans_pairs[i][0])
                 if s:
                     print(f'{GREEN}  ✔ - PASSED{NULL} {in_path}')
                 else:
