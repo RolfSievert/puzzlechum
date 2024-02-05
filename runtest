@@ -7,6 +7,7 @@ Runs tests on provided problem id.
 """
 
 import argparse
+from enum import Enum
 from io import TextIOWrapper
 import subprocess
 import json
@@ -48,8 +49,12 @@ class BenchmarkTask:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('problem_name')
-    parser.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
     parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in '.runtest_tmp/'")
+
+    exclusive_group = parser.add_mutually_exclusive_group(required=False)
+    exclusive_group.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
+    exclusive_group.add_argument('-a', '--benchmark-average', action='store_true', help='print average time execution benchmarks using hyperfine')
+
     return parser.parse_args()
 
 def get_ins_and_ans(test_dirs) -> list[tuple[str, str]]:
@@ -217,7 +222,10 @@ def check_test(output_path, ans_path) -> bool:
 
     return success
 
-def benchmark_fastest(benchmark: BenchmarkTask) -> str:
+def benchmark_report(benchmark: BenchmarkTask) -> list[str]:
+    """
+    Runs the benchmark task and returns the report.
+    """
     test_name = Path(benchmark.test_input).stem
     md_path = TMP_PATH / f'{benchmark.task_name}_{test_name}.md'
 
@@ -226,12 +234,23 @@ def benchmark_fastest(benchmark: BenchmarkTask) -> str:
     subprocess.run(f"{HYPERFINE} --shell=none --export-markdown={str(md_path)} --command-name '{benchmark.task_name} --> {test_name}' --input '{benchmark.test_input}' '{execution_without_input_output}'", shell=True)
 
     with open(md_path, 'r') as f:
-        lines = f.readlines()
-        unit = lines[0].split('|')[3][6:][:-2].strip()
-        stats = lines[2]
-        fastest = stats.split('|')[3].strip()
+        return f.readlines()
 
-        return f'{fastest} {unit}'
+def benchmark_average(benchmark: BenchmarkTask) -> str:
+    lines = benchmark_report(benchmark)
+    mean_unit = lines[0].split('|')[2].split()[1][1:-1].strip()
+    stats = lines[2]
+    average = stats.split('|')[2].split()[0].strip()
+
+    return f'{average} {mean_unit}'
+
+def benchmark_fastest(benchmark: BenchmarkTask) -> str:
+    lines = benchmark_report(benchmark)
+    min_unit = lines[0].split('|')[3].split()[1][1:-1].strip()
+    stats = lines[2]
+    fastest = stats.split('|')[3].strip()
+
+    return f'{fastest} {min_unit}'
 
 def benchmark_path(benchmark_name: str) -> Path:
     return Path(BENCHMARKS_PATH) / f'{benchmark_name}.json'
@@ -330,16 +349,24 @@ def visual_length(text: str) -> int:
     stripped_s = ansi_escape.sub('', text)
     return len(stripped_s)
 
-def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str) -> None:
+class Benchmark(Enum):
+    Average = 0
+    Fastest = 1
+
+def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str, measurement: Benchmark) -> None:
     benchmarks = sorted(benchmarks, key= lambda b: b.task_name + b.test_input)
     names = sorted(set([x.task_name for x in benchmarks]))
     tests = sorted(set([Path(x.test_input).stem for x in benchmarks]))
 
     speeds: dict[tuple[str, str], str] = {}
     for i, benchmark in enumerate(benchmarks):
-        fastest = benchmark_fastest(benchmark)
+        measure: str = ''
+        if (measurement == Benchmark.Average):
+            measure = benchmark_average(benchmark)
+        elif (measurement == Benchmark.Fastest):
+            measure = benchmark_fastest(benchmark)
 
-        speeds[(benchmark.task_name, Path(benchmark.test_input).stem)] = fastest
+        speeds[(benchmark.task_name, Path(benchmark.test_input).stem)] = measure
 
     # load old benchmark
     old_benchmark: dict[tuple[str, str], str] = {}
@@ -352,7 +379,10 @@ def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str)
     column_offset = len(max(tests, key=len)) + 2
     column_width = 10 + ((len(old_benchmark) != 0) * 13)
 
-    print(f'{BOLD}Fastest executions{NULL}')
+    if (measurement == Benchmark.Fastest):
+        print(f'{BOLD}Fastest executions{NULL}')
+    elif (measurement == Benchmark.Average):
+        print(f'{BOLD}Average executions{NULL}')
 
     # print problems
     for i, n in enumerate(names):
@@ -413,6 +443,8 @@ def __main__() -> None:
     sources_string = ', '.join(relativeCwd(src) for src in source_files)
     print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
 
+    run_benchmark: bool = args.benchmark or args.benchmark_average
+
     test_commands = []
     for s in source_files:
         test_command = compile_and_get_test_command(s, problem_dir)
@@ -447,7 +479,7 @@ def __main__() -> None:
                 else: # no execution error
                     success[i] = check_test(test_output_path, ans_file) and success[i]
 
-                    if args.benchmark:
+                    if run_benchmark:
                         benchmarks.append(BenchmarkTask(src.name, in_file, execution_cmd))
 
             print(f'{BLUE}{relativeCwd(src)}{NULL}')
@@ -458,14 +490,20 @@ def __main__() -> None:
                 else:
                     print(f'{RED}  ✗ - FAILED{NULL} {in_path}')
 
-        if args.benchmark:
+        if run_benchmark:
             print()
 
             if not has_hyperfine():
                 print(f'{BOLD}hyperfine{NULL} is not installed on your system! It is required to benchmark tests.')
                 exit(1)
 
-            run_and_print_benchmarks(benchmarks, args.problem_name)
+            measure: Benchmark
+            if args.benchmark_average:
+                measure = Benchmark.Average
+            else:
+                measure = Benchmark.Fastest
+
+            run_and_print_benchmarks(benchmarks, args.problem_name, measure)
 
     # cleanup
     if not args.no_cleanup:
