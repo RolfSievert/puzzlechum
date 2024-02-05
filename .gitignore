@@ -1,3 +1,4 @@
 tests
 problems
 .runtest_tmp
+.benchmarks

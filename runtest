@@ -9,6 +9,7 @@ Runs tests on provided problem id.
 import argparse
 from io import TextIOWrapper
 import subprocess
+import json
 
 from pathlib import Path
 
@@ -31,11 +32,18 @@ ACCEPTED_SRC_SUFFIXES = [
 PROBLEM_ROOT = Path(__file__).resolve().parent / 'problems'
 TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
 TMP_PATH = Path(__file__).resolve().parent / '.runtest_tmp'
+BENCHMARKS_PATH = Path(__file__).resolve().parent / '.benchmarks';
 
 HYPERFINE = 'hyperfine'
 
 CPP_COMPILE_FLAGS = 'g++ -g -O2 -std=gnu++17 -static -lrt -Wl,--whole-archive -lpthread -Wl,--no-whole-archive'
 RUST_COMPILE_FLAGS = 'rustc --crate-type bin --edition=2018'
+
+class BenchmarkTask:
+    def __init__(self, source_name: str, test_input: str, execution_command: str):
+        self.task_name = source_name
+        self.test_input = test_input
+        self.task = execution_command
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -209,13 +217,13 @@ def check_test(output_path, ans_path) -> bool:
 
     return success
 
-def benchmark_fastest(program_name, input_file, execution_cmd) -> str:
-    test_name = Path(input_file).stem
-    md_path = TMP_PATH / f'{program_name}_{test_name}.md'
+def benchmark_fastest(benchmark: BenchmarkTask) -> str:
+    test_name = Path(benchmark.test_input).stem
+    md_path = TMP_PATH / f'{benchmark.task_name}_{test_name}.md'
 
-    execution_without_input_output = execution_cmd[:execution_cmd.find(' < ')]
+    execution_without_input_output = benchmark.task[:benchmark.task.find(' < ')]
 
-    subprocess.run(f"{HYPERFINE} --shell=none --export-markdown={str(md_path)} --command-name '{program_name} --> {test_name}' --input '{input_file}' '{execution_without_input_output}'", shell=True)
+    subprocess.run(f"{HYPERFINE} --shell=none --export-markdown={str(md_path)} --command-name '{benchmark.task_name} --> {test_name}' --input '{benchmark.test_input}' '{execution_without_input_output}'", shell=True)
 
     with open(md_path, 'r') as f:
         lines = f.readlines()
@@ -225,39 +233,147 @@ def benchmark_fastest(program_name, input_file, execution_cmd) -> str:
 
         return f'{fastest} {unit}'
 
-def run_and_print_benchmarks(benchmarks) -> None:
-    benchmarks = sorted(benchmarks, key= lambda b: b[0] + b[1])
-    names = sorted(set([x for x, _, _ in benchmarks]))
-    tests = sorted(set([Path(x).stem for _, x, _ in benchmarks]))
+def benchmark_path(benchmark_name: str) -> Path:
+    return Path(BENCHMARKS_PATH) / f'{benchmark_name}.json'
 
-    speeds = {}
-    for i, (bench_name, input_file, execution_cmd) in enumerate(benchmarks):
-        fastest = benchmark_fastest(bench_name, input_file, execution_cmd)
+def has_old_benchmark(benchmark_name: str) -> bool:
+    return benchmark_path(benchmark_name).is_file()
 
-        speeds[(bench_name, Path(input_file).stem)] = fastest
+def load_old_benchmark(benchmark_name: str) -> dict[tuple[str, str], str]:
+    with open(benchmark_path(benchmark_name), 'r') as json_file:
+        serialized_data = json.load(json_file)
 
-    # build table template
-    max_test_name_length = len(max(tests, key=len))
-    table_template = '{0:' + str(max_test_name_length + 2) + '}'
-    for i, _ in enumerate(names):
-        table_template += '{' + str(i + 1) + ':10}'
+    res = {}
+    for key, value in serialized_data.items():
+        split_key = key.split('___')
+        res[(split_key[0], split_key[1])] = value
+
+    return res
+
+def save_benchmark(benchmark_name: str, benchmarks: dict[tuple[str, str], str]) -> None:
+    if not BENCHMARKS_PATH.is_dir():
+        try:
+            BENCHMARKS_PATH.mkdir()
+        except (FileExistsError, FileNotFoundError) as err:
+            print("Could not create {BENCHMARKS_PATH}:", err)
+
+    res = {}
+    for (source_name, test_name), value in benchmarks.items():
+        res[f'{source_name}___{test_name}'] = value
+
+    with open(benchmark_path(benchmark_name), 'w') as json_file:
+        json.dump(res, json_file, indent=2)
+
+def convert_time_unit(number: float, unit: str) -> float:
+    if unit == 's':
+        return number
+    elif unit == 'ms':
+        return number / 1000
+    elif unit == '\u00b5s':
+        return number / 1000000
+    else:
+        raise Exception(f'Cannot parse time unit: {unit}')
+
+def time_to_string(number: float) -> str:
+    suffixes = (
+        ('Ts', 1e12),
+        ('Gs', 1e9),
+        ('Ms', 1e6),
+        ('ks', 1e3),
+        ('s', 1),
+        ('ms', 1e-3),
+        ('\u00b5s', 1e-6),
+        ('ns', 1e-9),
+        ('ps', 1e-1)
+    )
+
+    # find the suffix
+    i = 0
+    for i, (_, f) in enumerate(suffixes):
+        if abs(number) >= f:
+            break
+
+    suffix = suffixes[i][0]
+    factor = suffixes[i][1]
+
+    formatted_value = f"{number / factor:.3f}" if factor != 1 else f"{number:.3f}"
+    # strip trailing zeros and the decimal point
+    formatted_value = formatted_value.rstrip('0').rstrip('.')
+
+    return f"{formatted_value} {suffix}"
+
+def benchmark_diff(old_speed: str, new_speed: str) -> str:
+    old_unit = old_speed.split()[1]
+    o_speed = float(old_speed.split()[0])
+    new_unit = new_speed.split()[1]
+    n_speed = float(new_speed.split()[0])
+
+    diff = convert_time_unit(n_speed, new_unit) - convert_time_unit(o_speed, old_unit)
+
+    if (diff < 0):
+        return f'({GREEN}{time_to_string(diff)}{NULL})'
+    elif (diff > 0):
+        return f'(+{RED}{time_to_string(diff)}{NULL})'
+    else:
+        return f'(=0)'
+
+def visual_length(text: str) -> int:
+    """
+    Strings with weird escape characters are chaos. Gotta do this to get correct visual length when printing them.
+    """
+    import re
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    stripped_s = ansi_escape.sub('', text)
+    return len(stripped_s)
+
+def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str) -> None:
+    benchmarks = sorted(benchmarks, key= lambda b: b.task_name + b.test_input)
+    names = sorted(set([x.task_name for x in benchmarks]))
+    tests = sorted(set([Path(x.test_input).stem for x in benchmarks]))
+
+    speeds: dict[tuple[str, str], str] = {}
+    for i, benchmark in enumerate(benchmarks):
+        fastest = benchmark_fastest(benchmark)
+
+        speeds[(benchmark.task_name, Path(benchmark.test_input).stem)] = fastest
+
+    # load old benchmark
+    old_benchmark: dict[tuple[str, str], str] = {}
+    if (has_old_benchmark(problem_name)):
+        old_benchmark = load_old_benchmark(problem_name)
+
+    # write new benchmark
+    save_benchmark(problem_name, speeds)
+
+    column_offset = len(max(tests, key=len)) + 2
+    column_width = 10 + ((len(old_benchmark) != 0) * 13)
 
     print(f'{BOLD}Fastest executions{NULL}')
-    header = ['']
+
+    # print problems
     for i, n in enumerate(names):
-        problem_num = f' ({i + 1})'
-        header.append(problem_num)
-        print(f'{problem_num} {n}')
-    print(table_template.format(*header))
+        print(f' ({i + 1}) {n}')
+
+    # print table header
+    print(f"{'':{column_offset}}", end='')
+    for i in range(len(names)):
+        print(f"{f' ({i + 1})':{column_width}}", end='')
+    print()
+
     for t in tests:
-        row = [t]
+        print(f'{t:{column_offset}}', end='')
         for i, n in enumerate(names):
             s = ' '
             if (n, t) in speeds:
                 s = speeds[(n, t)]
-            row.append(s)
+                if (n, t) in old_benchmark:
+                    old_speed = old_benchmark[(n, t)]
+                    s += f' {benchmark_diff(old_speed, s)}'
+            print(s, end='')
+            width = column_width - visual_length(s)
+            print(f'{"":{width}}', end='')
 
-        print(table_template.format(*row))
+        print()
 
 def has_hyperfine() -> bool:
     from shutil import which
@@ -304,7 +420,7 @@ def __main__() -> None:
         print(f"No tests found! Make sure to add both .in and .ans files to any of the folders:\n\t'{test_folder_paths}'")
     else:
         # tuples of name, test name, execution command
-        benchmarks = []
+        benchmarks: list[BenchmarkTask] = []
         tests_string = ', '.join(relativeCwd(test) for test, _ in ins_ans_pairs)
         print(f'{DIMMED}Running tests... [{tests_string}]{NULL}')
         print()
@@ -328,7 +444,7 @@ def __main__() -> None:
                     success[i] = check_test(test_output_path, ans_file) and success[i]
 
                     if args.benchmark:
-                        benchmarks.append((src.name, in_file, execution_cmd))
+                        benchmarks.append(BenchmarkTask(src.name, in_file, execution_cmd))
 
             print(f'{BLUE}{relativeCwd(src)}{NULL}')
             for i, s in enumerate(success):
@@ -345,7 +461,7 @@ def __main__() -> None:
                 print(f'{BOLD}hyperfine{NULL} is not installed on your system! It is required to benchmark tests.')
                 exit(1)
 
-            run_and_print_benchmarks(benchmarks)
+            run_and_print_benchmarks(benchmarks, args.problem_name)
 
     # cleanup
     if not args.no_cleanup:
