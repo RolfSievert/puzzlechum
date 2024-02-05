@@ -7,6 +7,7 @@ Runs tests on provided problem id.
 """
 
 import argparse
+from io import TextIOWrapper
 import subprocess
 
 from pathlib import Path
@@ -126,6 +127,40 @@ def compile_and_get_test_command(source_file, problem_dir):
         else:
             return f'{output_executable} < {"{}"} > {"{}"}'
 
+def printFailure(
+        ans_path: Path,
+        output_stack: list[str],
+        line: int,
+        output: str,
+        expected: str,
+        o_file: TextIOWrapper,
+        a_file: TextIOWrapper):
+
+    print(f'{YELLOW}{str(ans_path.relative_to(Path.cwd()))}{NULL}')
+    for o in output_stack:
+        print(o.rstrip())
+    print(f'{RED}FAIL!{NULL}')
+    print(f'    at: {RED}line {line+1}{NULL}')
+    print(f'    got: {RED}{output.rstrip()}{NULL}')
+    print(f'    expected: {BLUE}{expected.rstrip()}{NULL}')
+
+    trailing_output = o_file.read().split('\n')
+    output_joined = '\n'.join(trailing_output[:5])
+    print(f'{RED}{output_joined}{NULL}')
+    if (len(trailing_output) > 5):
+        print(f'... [{len(trailing_output[5:])} more rows]')
+        print()
+
+    # Print rest of expected output
+    a_dump = a_file.read()
+    if (a_dump):
+        print(f'ANSWERS: [from line {line+2} onwards]')
+        a_dump = a_dump.split('\n')
+        print('\n'.join(a_dump[:5]))
+        if len(a_dump) > 5:
+            print(f'... [{len(a_dump[5:])} more rows]')
+        print()
+
 def check_test(output_path, ans_path):
     # output logging
     stack_max_size = 16
@@ -152,21 +187,7 @@ def check_test(output_path, ans_path):
                 # lines are not the same (excluding whitespace)
                 if a_line.split() != o_line.split():
                     success = False
-                    for o in output_stack:
-                        if o == output_stack[-1]:
-                            print(f'{GREEN}{o}{NULL}')
-                        else:
-                            print(o)
-                    print(f'{YELLOW}{ans_path}{NULL} failed at line {line+1}')
-                    print(f'EXPECTED: {BLUE}{a_line.rstrip()}{NULL}')
-
-                    print(f'{RED}{o_line}{o_file.read()}{NULL}')
-
-                    # Print rest of expected output
-                    a_dump = a_file.read()
-                    if (a_dump):
-                        print('ANSWERS:')
-                        print(a_dump)
+                    printFailure(Path(ans_path), output_stack, line, o_line, a_line, o_file, a_file)
 
                 # save output
                 output_stack.append(o_line)
@@ -303,7 +324,7 @@ def __main__():
                     if args.benchmark:
                         benchmarks.append((src.name, in_file, execution_cmd))
 
-            print(src)
+            print(str(Path(src).relative_to(Path.cwd())))
             if success:
                 print(f'{GREEN}  ✔ - PASSED{NULL}')
             else:
