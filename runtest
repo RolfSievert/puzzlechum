@@ -129,9 +129,9 @@ def compile_and_get_test_command(source_file, problem_dir) -> str:
             print(output.stderr.decode("utf-8"))
 
         if source_file.suffix == '.py':
-            return f'pypy3 {source_file} < {"{}"} > {"{}"}'
+            return f'pypy3 {relativeCwd(source_file)} < {"{}"} > {"{}"}'
         else:
-            return f'{output_executable} < {"{}"} > {"{}"}'
+            return f'{relativeCwd(output_executable)} < {"{}"} > {"{}"}'
 
 def printFailure(
         ans_path: str,
@@ -314,7 +314,7 @@ def __main__() -> None:
             success = [True for _ in ins_ans_pairs]
             for i, (in_file, ans_file) in enumerate(ins_ans_pairs):
                 test_output_path = TMP_PATH / f'{src.stem}_{src.suffix[1:]}_{Path(in_file).stem}_output'
-                execution_cmd = test_command.format(in_file, test_output_path)
+                execution_cmd = test_command.format(relativeCwd(in_file), relativeCwd(test_output_path))
                 output = subprocess.run([f'({execution_cmd})'], shell=True, capture_output=True)
                 if output.returncode != 0: # execution error
                     print()
