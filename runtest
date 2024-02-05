@@ -37,14 +37,14 @@ HYPERFINE = 'hyperfine'
 CPP_COMPILE_FLAGS = 'g++ -g -O2 -std=gnu++17 -static -lrt -Wl,--whole-archive -lpthread -Wl,--no-whole-archive'
 RUST_COMPILE_FLAGS = 'rustc --crate-type bin --edition=2018'
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('problem_name')
     parser.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
     parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in '.runtest_tmp/'")
     return parser.parse_args()
 
-def get_ins_and_ans(test_dirs):
+def get_ins_and_ans(test_dirs) -> list[tuple[str, str]]:
     ans = []
     ins = []
 
@@ -62,14 +62,14 @@ def get_ins_and_ans(test_dirs):
 
     return list(zip([str(x) for x in ins], [str(x) for x in ans]))
 
-def check_create_tmp_dir():
+def check_create_tmp_dir() -> None:
     if not TMP_PATH.is_dir():
         try:
             TMP_PATH.mkdir()
         except (FileExistsError, FileNotFoundError) as err:
             print("Could not create {TMP_PATH}:", err)
 
-def is_accepted_src_file(file_path, problem_name):
+def is_accepted_src_file(file_path, problem_name) -> bool:
     return \
         file_path.is_file() \
         and file_path.name.startswith(problem_name) \
@@ -81,7 +81,7 @@ def match_problems_folder(problem_name: str) -> tuple[Path, ...]:
 def valid_problem_name(problem_name: str) -> bool:
     return (PROBLEM_ROOT / problem_name).is_dir()
 
-def get_source_files(problem_name):
+def get_source_files(problem_name) -> list[Path]:
     problem_dir = PROBLEM_ROOT / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
 
@@ -91,7 +91,7 @@ def relativeCwd(path: str | Path) -> str:
     else:
         return str(Path(path).relative_to(Path.cwd()))
 
-def compile_and_get_test_command(source_file, problem_dir):
+def compile_and_get_test_command(source_file, problem_dir) -> str:
     # TODO extend to handle more languages
     output_name = f'{source_file.stem}_{source_file.suffix[1:]}'
     output_executable = TMP_PATH / output_name
@@ -140,7 +140,7 @@ def printFailure(
         output: str,
         expected: str,
         o_file: TextIOWrapper,
-        a_file: TextIOWrapper):
+        a_file: TextIOWrapper) -> None:
 
     print(f'{YELLOW}{relativeCwd(ans_path)}{NULL}')
     for o in output_stack:
@@ -167,7 +167,7 @@ def printFailure(
             print(f'... [{len(a_dump[5:])} more rows]')
         print()
 
-def check_test(output_path, ans_path):
+def check_test(output_path, ans_path) -> bool:
     # output logging
     stack_max_size = 16
     output_stack = []
@@ -209,7 +209,7 @@ def check_test(output_path, ans_path):
 
     return success
 
-def benchmark_fastest(program_name, input_file, execution_cmd):
+def benchmark_fastest(program_name, input_file, execution_cmd) -> str:
     test_name = Path(input_file).stem
     md_path = TMP_PATH / f'{program_name}_{test_name}.md'
 
@@ -225,7 +225,7 @@ def benchmark_fastest(program_name, input_file, execution_cmd):
 
         return f'{fastest} {unit}'
 
-def run_and_print_benchmarks(benchmarks):
+def run_and_print_benchmarks(benchmarks) -> None:
     benchmarks = sorted(benchmarks, key= lambda b: b[0] + b[1])
     names = sorted(set([x for x, _, _ in benchmarks]))
     tests = sorted(set([Path(x).stem for _, x, _ in benchmarks]))
@@ -259,11 +259,11 @@ def run_and_print_benchmarks(benchmarks):
 
         print(table_template.format(*row))
 
-def has_hyperfine():
+def has_hyperfine() -> bool:
     from shutil import which
     return which('hyperfine') is not None
 
-def __main__():
+def __main__() -> None:
     args = parse_args()
 
     if not valid_problem_name(args.problem_name):
