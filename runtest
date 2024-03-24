@@ -64,6 +64,7 @@ def get_ins_and_ans(test_dirs) -> list[tuple[str, str]]:
     for d in test_dirs:
         if d.is_dir():
             ans += d.glob('*.ans')
+            ans += d.glob('*.out')
             ins += d.glob('*.in')
 
     # remove test files that don't have both .in and .ans
