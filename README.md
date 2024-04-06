@@ -5,9 +5,16 @@ Helper scripts to create, test, and benchmark your algorithms! (also downloads k
 *(Only works for **rust**, **c++** and **python** currently, but feel free to open an Issue for further language support)*
 
 
-## Optional requirements
+## Requirements
 
+Required regardless of what language you are programming with:
+- `requests` - python `requests` package
+
+Optional dependencies:
 - [hyperfine](https://github.com/sharkdp/hyperfine) - only required for benchmarking!
+
+### Testing python code
+- [pypy3](https://www.pypy.org/) - required for python code compilation
 
 
 ## Usage

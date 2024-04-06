@@ -11,6 +11,7 @@ import requests
 from pathlib import Path
 import argparse
 import zipfile
+import json
 
 # Root folders
 # call .resolve() if newproblem is symlinked
@@ -22,7 +23,8 @@ TEMPLATES = ['cpp', 'rs', 'py']
 
 TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
-DEFAULT_LANGUAGE = TEMPLATES[0]
+CONFIG_PATH = Path(__file__).resolve().parent / '.puzzle_config'
+DEFAULT_LANGUAGE_KEY = 'default_language'
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -30,7 +32,7 @@ def parse_args():
         description='Download given kattis test cases, create problem folder, and copy problem template to that folder')
 
     parser.add_argument('problem_name', type=str, help='Kattis problem ID, check the url after \'problems/\'')
-    parser.add_argument('--template', choices=TEMPLATES, default=DEFAULT_LANGUAGE, help='what template to use, must exist in \'templates/\' folder')
+    parser.add_argument('--template', choices=TEMPLATES, default=None, help='what template to use, must exist in \'templates/\' folder')
 
     return parser.parse_args()
 
@@ -47,7 +49,7 @@ def create_missing_folders():
 def problem_test_directory(problem_name):
     return TESTS_ROOT / problem_name
 
-def download_tests(problem_name):
+def download_tests(problem_name) -> bool:
     tests_dir = problem_test_directory(problem_name)
 
     if tests_dir.is_dir():
@@ -55,16 +57,16 @@ def download_tests(problem_name):
 
     zip_path = Path('samples.zip')
 
-    try:
-        with open(zip_path, 'wb') as file:
-            url = TESTS_URL.format(problem_name)
-            response = requests.get(url)
-            if response.status_code >= 400:
-                raise Exception(response.reason)
+    with open(zip_path, 'wb') as file:
+        url = TESTS_URL.format(problem_name)
+        response = requests.get(url)
+        if response.status_code >= 400:
+            print(f'Warning: Could not download test samples from kattis')
+            print(f" - Does '{problem_name}' exist at kattis?")
+            print(' - Do you have an internet connection?\n')
+            return False
+        else:
             file.write(response.content)
-    except:
-        raise Exception('Could not download test samples! ' +
-              f"Does '{problem_name}' really exist at kattis, and do you have an internet connection?")
 
     # extract sample input to tests folder
     f = zipfile.ZipFile(zip_path)
@@ -83,6 +85,29 @@ def create_problem_folders(problem_name):
 
 def problem_path(problem_name, file_suffix):
     return PROBLEMS_ROOT / problem_name / f'{problem_name}.{file_suffix}'
+
+def get_config() -> dict:
+    if CONFIG_PATH.is_file():
+        with open(CONFIG_PATH, 'r') as f:
+            return json.load(f)
+    else:
+        return {}
+
+def write_config(config: dict) -> None:
+    with open(CONFIG_PATH, 'w') as f:
+        json.dump(config, f)
+
+def default_language() -> str|None:
+    config = get_config()
+    if DEFAULT_LANGUAGE_KEY in config:
+        return config[DEFAULT_LANGUAGE_KEY]
+    else:
+        return None
+
+def set_default_language(language: str) -> None:
+    config = get_config()
+    config[DEFAULT_LANGUAGE_KEY] = language
+    write_config(config)
 
 def copy_template(template_suffix, destination):
     success = False
@@ -104,6 +129,16 @@ if __name__ == '__main__':
 
     create_missing_folders()
     create_problem_folders(args.problem_name)
+
+    if default_language() == None:
+        if args.template is None:
+            print(f'You have not set a default programming language. The following argument must be set the first time you run this script:\n  --template [{", ".join(TEMPLATES)}]')
+            exit()
+        else:
+            set_default_language(args.template)
+            print(f"New default programming language set: '{args.template}'. To change this setting, either remove or modify the file '{CONFIG_PATH}'.\n")
+    else:
+        args.template = default_language()
 
     problem_file = problem_path(args.problem_name, args.template)
     template_success = copy_template(args.template, problem_file)
