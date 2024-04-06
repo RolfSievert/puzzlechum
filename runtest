@@ -11,6 +11,7 @@ from enum import Enum
 from io import TextIOWrapper
 import subprocess
 import json
+import os
 
 from pathlib import Path
 
@@ -142,10 +143,18 @@ def compile_and_get_test_command(source_file, problem_dir) -> str:
             print(f'{YELLOW}{source_file} has compile warnings:{NULL}')
             print(output.stderr.decode("utf-8"))
 
+        shell = os.environ.get('SHELL', '')
+
         if source_file.suffix == '.py':
-            return f'pypy3 {relativeCwd(source_file)} < {"{}"} > {"{}"}'
+            if shell == 'powershell':
+                return f'Get-Content {"{}"} | pypy3 {relativeCwd(source_file)} | Out-File {"{}"}'
+            else:
+                return f'pypy3 {relativeCwd(source_file)} < {"{}"} > {"{}"}'
         else:
-            return f'{relativeCwd(output_executable)} < {"{}"} > {"{}"}'
+            if shell == 'powershell':
+                return f'Get-Content {"{}"} | {relativeCwd(output_executable)} | Out-File {"{}"}'
+            else:
+                return f'{relativeCwd(output_executable)} < {"{}"} > {"{}"}'
 
 def printFailure(
         ans_path: str,
