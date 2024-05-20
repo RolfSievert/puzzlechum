@@ -4,6 +4,9 @@ Helper scripts to create, test, and benchmark your algorithms! (also downloads k
 
 *(Only works for **rust**, **c++** and **python** currently, but feel free to open an Issue for further language support)*
 
+## TODO
+
+- make installable and that all commands run as subcommands of `chum`, i.e. `chum new` and `chum test`
 
 ## Requirements
 
