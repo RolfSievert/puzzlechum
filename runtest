@@ -40,6 +40,7 @@ HYPERFINE = 'hyperfine'
 
 CPP_COMPILE_FLAGS = 'g++ -g -O2 -std=gnu++17 -static -lrt -Wl,--whole-archive -lpthread -Wl,--no-whole-archive'
 RUST_COMPILE_FLAGS = 'rustc --crate-type bin --edition=2018'
+PYTHON_COMPILE_FLAGS = 'pypy3'
 
 class BenchmarkTask:
     def __init__(self, source_name: str, test_input: str, execution_command: str):
@@ -124,7 +125,7 @@ def compile_and_get_test_command(source_file, problem_dir) -> str:
         except:
             raise Exception('Executing python code requires `pypy3` (as that is what kattis does, see https://open.kattis.com/languages/python3)')
 
-        CC = f'pypy3'
+        CC = PYTHON_COMPILE_FLAGS
     else:
         raise Exception(f'Programming language not supported: {source_file.suffix}')
 
