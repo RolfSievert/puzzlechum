@@ -6,51 +6,32 @@
 Provided a problem id, downloads tests and creates a test file if it doesn't exist already.
 """
 
+from enum import Enum
 import shutil
 import requests
 from pathlib import Path
-import argparse
 import zipfile
 import json
 
 # Root folders
 # call .resolve() if newproblem is symlinked
-PROBLEMS_ROOT = Path(__file__).resolve().parent / 'problems'
-TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
 TEMPLATES_ROOT = Path(__file__).resolve().parent / 'templates'
-
-TEMPLATES = ['cpp', 'rs', 'py']
 
 TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
 CONFIG_PATH = Path(__file__).resolve().parent / '.puzzle_config'
 DEFAULT_LANGUAGE_KEY = 'default_language'
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        prog='newproblem',
-        description='Download given kattis test cases, create problem folder, and copy problem template to that folder')
+class Template(Enum):
+    cpp = 'cpp'
+    rs = 'rs'
+    py = 'py'
 
-    parser.add_argument('problem_name', type=str, help='Kattis problem ID, check the url after \'problems/\'')
-    parser.add_argument('--template', choices=TEMPLATES, default=None, help='what template to use, must exist in \'templates/\' folder')
+def problem_test_directory(problems_root: Path, problem_name: str):
+    return problems_root / 'tests' / problem_name
 
-    return parser.parse_args()
-
-def create_missing_folders():
-    if not PROBLEMS_ROOT.is_dir():
-        PROBLEMS_ROOT.mkdir()
-
-    if not TESTS_ROOT.is_dir():
-        TESTS_ROOT.mkdir()
-
-    if not TEMPLATES_ROOT.is_dir():
-        TEMPLATES_ROOT.mkdir()
-
-def problem_test_directory(problem_name):
-    return TESTS_ROOT / problem_name
-
-def download_tests(problem_name) -> bool:
-    tests_dir = problem_test_directory(problem_name)
+def download_tests(problems_root: Path, problem_name: str) -> bool:
+    tests_dir = problem_test_directory(problems_root, problem_name)
 
     if tests_dir.is_dir():
         return False
@@ -79,12 +60,12 @@ def download_tests(problem_name) -> bool:
 
     return True
 
-def create_problem_folders(problem_name):
-    if not (PROBLEMS_ROOT / problem_name).is_dir():
-        (PROBLEMS_ROOT / problem_name).mkdir()
+def create_problem_folders(problems_root: Path, problem_name: str):
+    if not (problems_root / problem_name).is_dir():
+        (problems_root / problem_name).mkdir()
 
-def problem_path(problem_name, file_suffix):
-    return PROBLEMS_ROOT / problem_name / f'{problem_name}.{file_suffix}'
+def problem_path(problems_root: Path, problem_name: str, file_suffix: str):
+    return problems_root / problem_name / f'{problem_name}.{file_suffix}'
 
 def get_config() -> dict:
     if CONFIG_PATH.is_file():
@@ -97,7 +78,7 @@ def write_config(config: dict) -> None:
     with open(CONFIG_PATH, 'w') as f:
         json.dump(config, f)
 
-def default_language() -> str|None:
+def default_language() -> Template|None:
     config = get_config()
     if DEFAULT_LANGUAGE_KEY in config:
         return config[DEFAULT_LANGUAGE_KEY]
@@ -124,32 +105,30 @@ def copy_template(template_suffix, destination):
 
     return success
 
-if __name__ == '__main__':
-    args = parse_args()
+def new_problem(problems_root: Path, problem_name: str, template: Template|None = None) -> None:
+    create_problem_folders(problems_root, problem_name)
 
-    create_missing_folders()
-    create_problem_folders(args.problem_name)
-
-    if default_language() == None:
-        if args.template is None:
-            print(f'You have not set a default programming language. The following argument must be set the first time you run this script:\n  --template [{", ".join(TEMPLATES)}]')
+    dl = default_language()
+    if dl == None:
+        if template is None:
+            print(f'You have not set a default programming language. The following argument must be set the first time you run this script:\n  --template [{", ".join(t.value for t in Template)}]')
             exit()
         else:
-            set_default_language(args.template)
-            print(f"New default programming language set: '{args.template}'. To change this setting, either remove or modify the file '{CONFIG_PATH}'.\n")
-    else:
-        args.template = default_language()
+            set_default_language(template.value)
+            print(f"New default programming language set: '{template.value}'. To change this setting, either remove or modify the file '{CONFIG_PATH}'.\n")
+    elif template == None:
+        template = dl
 
-    problem_file = problem_path(args.problem_name, args.template)
-    template_success = copy_template(args.template, problem_file)
+    problem_file = problem_path(problems_root, problem_name, template.value)
+    template_success = copy_template(template, problem_file)
 
     if template_success:
         print(f'Copied template to \'{problem_file}\'')
     else:
         print(f'Problem already exists at {problem_file}')
 
-    tests_success = download_tests(args.problem_name)
+    tests_success = download_tests(problems_root, problem_name)
     if tests_success:
-        print(f"Test samples successfully downloaded to '{problem_test_directory(args.problem_name)}'")
+        print(f"Test samples successfully downloaded to '{problem_test_directory(problems_root, problem_name)}'")
     else:
         print(f"Test samples already exists, skipping...")

@@ -6,7 +6,6 @@
 Runs tests on provided problem id.
 """
 
-import argparse
 from enum import Enum
 from io import TextIOWrapper
 import subprocess
@@ -31,10 +30,7 @@ ACCEPTED_SRC_SUFFIXES = [
 ]
 
 # call .resolve() to make symlinking of scripts possible
-PROBLEM_ROOT = Path(__file__).resolve().parent / 'problems'
-TESTS_ROOT = Path(__file__).resolve().parent / 'tests'
-TMP_PATH = Path(__file__).resolve().parent / '.runtest_tmp'
-BENCHMARKS_PATH = Path(__file__).resolve().parent / '.benchmarks';
+TMP_PATH = Path.cwd() / 'test_output'
 
 HYPERFINE = 'hyperfine'
 
@@ -47,17 +43,6 @@ class BenchmarkTask:
         self.task_name = source_name
         self.test_input = test_input
         self.task = execution_command
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('problem_name')
-    parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in '.runtest_tmp/'")
-
-    exclusive_group = parser.add_mutually_exclusive_group(required=False)
-    exclusive_group.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
-    exclusive_group.add_argument('-a', '--benchmark-average', action='store_true', help='print average time execution benchmarks using hyperfine')
-
-    return parser.parse_args()
 
 def get_ins_and_ans(test_dirs) -> list[tuple[str, str]]:
     ans = []
@@ -91,14 +76,14 @@ def is_accepted_src_file(file_path, problem_name) -> bool:
         and file_path.name.startswith(problem_name) \
         and file_path.suffix in ACCEPTED_SRC_SUFFIXES
 
-def match_problems_folder(problem_name: str) -> tuple[Path, ...]:
-    return tuple(p for p in PROBLEM_ROOT.glob(f'*{problem_name}*') if p.is_dir())
+def match_problems_folder(problems_root: Path, problem_name: str) -> tuple[Path, ...]:
+    return tuple(p for p in problems_root.glob(f'*{problem_name}*') if p.is_dir())
 
-def valid_problem_name(problem_name: str) -> bool:
-    return (PROBLEM_ROOT / problem_name).is_dir()
+def valid_problem_name(problems_root: Path, problem_name: str) -> bool:
+    return (problems_root / problem_name).is_dir()
 
-def get_source_files(problem_name) -> list[Path]:
-    problem_dir = PROBLEM_ROOT / problem_name
+def get_source_files(problems_root: Path, problem_name) -> list[Path]:
+    problem_dir = problems_root / problem_name
     return [x for x in problem_dir.iterdir() if is_accepted_src_file(x, problem_name)]
 
 def relativeCwd(path: str | Path) -> str:
@@ -263,14 +248,14 @@ def benchmark_fastest(benchmark: BenchmarkTask) -> str:
 
     return f'{fastest} {min_unit}'
 
-def benchmark_path(benchmark_name: str) -> Path:
-    return Path(BENCHMARKS_PATH) / f'{benchmark_name}.json'
+def benchmark_path(problems_root: Path, benchmark_name: str) -> Path:
+    return problems_root / '.chum' / 'benchmarks' / f'{benchmark_name}.json'
 
-def has_old_benchmark(benchmark_name: str) -> bool:
-    return benchmark_path(benchmark_name).is_file()
+def has_old_benchmark(problems_root: Path, benchmark_name: str) -> bool:
+    return benchmark_path(problems_root, benchmark_name).is_file()
 
-def load_old_benchmark(benchmark_name: str) -> dict[tuple[str, str], str]:
-    with open(benchmark_path(benchmark_name), 'r') as json_file:
+def load_old_benchmark(problems_root: Path, benchmark_name: str) -> dict[tuple[str, str], str]:
+    with open(benchmark_path(problems_root, benchmark_name), 'r') as json_file:
         serialized_data = json.load(json_file)
 
     res = {}
@@ -280,18 +265,12 @@ def load_old_benchmark(benchmark_name: str) -> dict[tuple[str, str], str]:
 
     return res
 
-def save_benchmark(benchmark_name: str, benchmarks: dict[tuple[str, str], str]) -> None:
-    if not BENCHMARKS_PATH.is_dir():
-        try:
-            BENCHMARKS_PATH.mkdir()
-        except (FileExistsError, FileNotFoundError) as err:
-            print("Could not create {BENCHMARKS_PATH}:", err)
-
+def save_benchmark(problems_root: Path, benchmark_name: str, benchmarks: dict[tuple[str, str], str]) -> None:
     res = {}
     for (source_name, test_name), value in benchmarks.items():
         res[f'{source_name}___{test_name}'] = value
 
-    with open(benchmark_path(benchmark_name), 'w') as json_file:
+    with open(benchmark_path(problems_root, benchmark_name), 'w') as json_file:
         json.dump(res, json_file, indent=2)
 
 def convert_time_unit(number: float, unit: str) -> float:
@@ -364,7 +343,7 @@ class Benchmark(Enum):
     Average = 0
     Fastest = 1
 
-def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str, measurement: Benchmark) -> None:
+def run_and_print_benchmarks(problems_root: Path, benchmarks: list[BenchmarkTask], problem_name: str, measurement: Benchmark) -> None:
     benchmarks = sorted(benchmarks, key= lambda b: b.task_name + b.test_input)
     names = sorted(set([x.task_name for x in benchmarks]))
     tests = sorted(set([Path(x.test_input).stem for x in benchmarks]))
@@ -381,11 +360,11 @@ def run_and_print_benchmarks(benchmarks: list[BenchmarkTask], problem_name: str,
 
     # load old benchmark
     old_benchmark: dict[tuple[str, str], str] = {}
-    if (has_old_benchmark(problem_name)):
-        old_benchmark = load_old_benchmark(problem_name)
+    if (has_old_benchmark(problems_root, problem_name)):
+        old_benchmark = load_old_benchmark(problems_root, problem_name)
 
     # write new benchmark
-    save_benchmark(problem_name, speeds)
+    save_benchmark(problems_root, problem_name, speeds)
 
     column_offset = len(max(tests, key=len)) + 2
     column_width = 10 + ((len(old_benchmark) != 0) * 13)
@@ -424,37 +403,35 @@ def has_hyperfine() -> bool:
     from shutil import which
     return which('hyperfine') is not None
 
-def __main__() -> None:
-    args = parse_args()
-
-    if not valid_problem_name(args.problem_name):
-        problem_suggestions = match_problems_folder(args.problem_name)
+def run_and_test(problems_root: Path, problem_name: str, benchmark: bool, benchmark_average: bool, cleanup: bool = False) -> None:
+    if not valid_problem_name(problems_root, problem_name):
+        problem_suggestions = match_problems_folder(problems_root, problem_name)
 
         # auto-select problem
         if len(problem_suggestions) == 1:
-            args.problem_name = problem_suggestions[0].name
-            print(f'No such problem exists, using only match: {args.problem_name}\n')
+            problem_name = problem_suggestions[0].name
+            print(f'No such problem exists, using only match: {problem_name}\n')
         # print error with suggestions
         else:
-            print(f'No such problem exists: {(PROBLEM_ROOT / args.problem_name).name}')
+            print(f'No such problem exists: {(problems_root / problem_name).name}')
             if len(problem_suggestions):
                 problems_string = '\n\t'.join(str(p.name) for p in problem_suggestions)
                 print(f'\nDid you mean any of:\n\t{problems_string}')
 
             exit(1)
 
-    problem_dir = PROBLEM_ROOT / args.problem_name
-    test_dir = TESTS_ROOT / args.problem_name
+    problem_dir = problems_root / problem_name
+    test_dir = problems_root / 'tests' / problem_name
     test_dirs = [test_dir, problem_dir / 'test', problem_dir / 'tests']
     ins_ans_pairs = get_ins_and_ans(test_dirs)
 
     check_create_tmp_dir()
 
-    source_files = get_source_files(args.problem_name)
+    source_files = get_source_files(problems_root, problem_name)
     sources_string = ', '.join(relativeCwd(src) for src in source_files)
     print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
 
-    run_benchmark: bool = args.benchmark or args.benchmark_average
+    run_benchmark: bool = benchmark or benchmark_average
 
     test_commands = []
     for s in source_files:
@@ -509,17 +486,15 @@ def __main__() -> None:
                 exit(1)
 
             measure: Benchmark
-            if args.benchmark_average:
+            if benchmark_average:
                 measure = Benchmark.Average
             else:
                 measure = Benchmark.Fastest
 
-            run_and_print_benchmarks(benchmarks, args.problem_name, measure)
+            run_and_print_benchmarks(problems_root, benchmarks, problem_name, measure)
 
     # cleanup
-    if not args.no_cleanup:
+    if cleanup:
         for x in TMP_PATH.iterdir():
             x.unlink()
         TMP_PATH.rmdir()
-
-__main__()
