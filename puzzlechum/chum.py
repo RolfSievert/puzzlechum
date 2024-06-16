@@ -87,7 +87,11 @@ def main():
         exit(1)
 
     if args.command == 'new':
-        new_problem(problems_root, args.problem_name)
+        template = None
+        if args.template:
+            template = Template(args.template)
+
+        new_problem(problems_root, args.problem_name, template)
     elif args.command == 'test':
         run_and_test(problems_root, args.problem_name, args.benchmark, args.benchmark_average, not args.no_cleanup)
 

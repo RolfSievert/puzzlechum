@@ -421,7 +421,7 @@ def run_and_test(problems_root: Path, problem_name: str, benchmark: bool, benchm
             exit(1)
 
     problem_dir = problems_root / problem_name
-    test_dir = problems_root / 'tests' / problem_name
+    test_dir = problems_root / '.chumtests' / problem_name
     test_dirs = [test_dir, problem_dir / 'test', problem_dir / 'tests']
     ins_ans_pairs = get_ins_and_ans(test_dirs)
 

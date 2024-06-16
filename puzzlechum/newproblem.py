@@ -13,13 +13,10 @@ from pathlib import Path
 import zipfile
 import json
 
-# Root folders
-# call .resolve() if newproblem is symlinked
-TEMPLATES_ROOT = Path(__file__).resolve().parent / 'templates'
+TEMPLATES_ROOT = Path(__file__).parent / 'templates'
 
 TESTS_URL = 'https://open.kattis.com/problems/{}/file/statement/samples.zip'
 
-CONFIG_PATH = Path(__file__).resolve().parent / '.puzzle_config'
 DEFAULT_LANGUAGE_KEY = 'default_language'
 
 class Template(Enum):
@@ -27,14 +24,18 @@ class Template(Enum):
     rs = 'rs'
     py = 'py'
 
-def problem_test_directory(problems_root: Path, problem_name: str):
-    return problems_root / 'tests' / problem_name
+def problem_test_directory(problems_root: Path, problem_name: str) -> Path:
+    test_root = problems_root / '.chumtests'
+    test_dir = test_root / problem_name
+    if not test_root.is_dir():
+        test_root.mkdir()
+    if not test_dir.is_dir():
+        test_dir.mkdir()
+
+    return test_dir
 
 def download_tests(problems_root: Path, problem_name: str) -> bool:
     tests_dir = problem_test_directory(problems_root, problem_name)
-
-    if tests_dir.is_dir():
-        return False
 
     zip_path = Path('samples.zip')
 
@@ -52,7 +53,6 @@ def download_tests(problems_root: Path, problem_name: str) -> bool:
     # extract sample input to tests folder
     f = zipfile.ZipFile(zip_path)
 
-    tests_dir.mkdir()
     f.extractall(tests_dir)
 
     # remove zip
@@ -67,40 +67,48 @@ def create_problem_folders(problems_root: Path, problem_name: str):
 def problem_path(problems_root: Path, problem_name: str, file_suffix: str):
     return problems_root / problem_name / f'{problem_name}.{file_suffix}'
 
-def get_config() -> dict:
-    if CONFIG_PATH.is_file():
-        with open(CONFIG_PATH, 'r') as f:
+def config_path(problems_root: Path) -> Path:
+    return problems_root / '.chumconfig'
+
+def get_config(problems_root: Path) -> dict:
+    config = config_path(problems_root)
+    if config.is_file():
+        with open(config, 'r') as f:
             return json.load(f)
     else:
         return {}
 
-def write_config(config: dict) -> None:
-    with open(CONFIG_PATH, 'w') as f:
+def write_config(problems_root: Path, config: dict) -> None:
+    with open(config_path(problems_root), 'w') as f:
         json.dump(config, f)
 
-def default_language() -> Template|None:
-    config = get_config()
+def default_language(problems_root: Path) -> Template|None:
+    config = get_config(problems_root)
     if DEFAULT_LANGUAGE_KEY in config:
-        return config[DEFAULT_LANGUAGE_KEY]
+        try:
+            return Template(config[DEFAULT_LANGUAGE_KEY])
+        except:
+            raise Exception(f"'{config[DEFAULT_LANGUAGE_KEY]}' is not a valid template! Must be any of {list(t.value for t in Template)}")
     else:
         return None
 
-def set_default_language(language: str) -> None:
-    config = get_config()
+def set_default_language(problems_root: Path, language: str) -> None:
+    config = get_config(problems_root)
     config[DEFAULT_LANGUAGE_KEY] = language
-    write_config(config)
+    write_config(problems_root, config)
 
-def copy_template(template_suffix, destination):
+def template_path(problems_root: Path, template: Template) -> Path:
+    custom_template_path = problems_root / '.chumtemplates' / f'template.{template.value}'
+    if custom_template_path.is_file():
+        return custom_template_path
+    else:
+        return TEMPLATES_ROOT / f'template.{template.value}'
+
+def copy_template(problems_root: Path, template: Template, destination: Path):
     success = False
-    problem_path = destination
 
-    if not problem_path.is_file():
-        template = TEMPLATES_ROOT / f'template.{template_suffix}'
-        if not template.is_file():
-            raise Exception(f"Template '{template}' does not exist! Perhaps create one?")
-        else:
-            shutil.copyfile(template, problem_path)
-
+    if not destination.is_file():
+        shutil.copyfile(template_path(problems_root, template), destination)
         success = True
 
     return success
@@ -108,19 +116,21 @@ def copy_template(template_suffix, destination):
 def new_problem(problems_root: Path, problem_name: str, template: Template|None = None) -> None:
     create_problem_folders(problems_root, problem_name)
 
-    dl = default_language()
+    dl = default_language(problems_root)
     if dl == None:
         if template is None:
             print(f'You have not set a default programming language. The following argument must be set the first time you run this script:\n  --template [{", ".join(t.value for t in Template)}]')
             exit()
         else:
-            set_default_language(template.value)
-            print(f"New default programming language set: '{template.value}'. To change this setting, either remove or modify the file '{CONFIG_PATH}'.\n")
+            set_default_language(problems_root, template.value)
+            print(f"New default programming language set: '{template.value}'.")
+            print(f"To change this setting, either remove or modify the file '{config_path(problems_root)}'.")
+            print()
     elif template == None:
         template = dl
 
     problem_file = problem_path(problems_root, problem_name, template.value)
-    template_success = copy_template(template, problem_file)
+    template_success = copy_template(problems_root, template, problem_file)
 
     if template_success:
         print(f'Copied template to \'{problem_file}\'')
