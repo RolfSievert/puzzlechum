@@ -1,4 +1,6 @@
 tests
-problems
 .runtest_tmp
 .benchmarks
+
+dist
+*.pkg.tar.zst
