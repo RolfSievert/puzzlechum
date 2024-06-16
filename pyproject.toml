@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "puzzlechum"
+version = "0.0.1"
+authors = [
+  { name="Rolf Sievert", email="author@example.com" },
+]
+description = "A problem solver needs a friendly sidekick, meet puzzlechum!"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "argparse",
+  "pathlib",
+  "enum",
+  "shutil",
+  "requests",
+  "zipfile",
+  "json",
+  "io",
+  "subprocess",
+  "os",
+  "re",
+  "pyperclip",
+]
+
+[project.urls]
+Homepage = "https://github.com/RolfSievert/puzzlechum"
+Issues = "https://github.com/RolfSievert/puzzlechum/issues"
+
+[project.scripts]
+chum = "puzzlechum.chum:main"

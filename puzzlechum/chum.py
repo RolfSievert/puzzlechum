@@ -4,10 +4,10 @@
 
 import argparse
 from pathlib import Path
-from find_problems_root import find_problems_root
 
-from newproblem import new_problem, Template
-from runtest import run_and_test
+from .find_problems_root import find_problems_root
+from .newproblem import new_problem, Template
+from .runtest import run_and_test
 
 def has_valid_problems_root() -> bool:
     cwd = Path.cwd()
@@ -61,7 +61,7 @@ def build_parser(subparsers) -> None:
     exclusive_group.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
     exclusive_group.add_argument('-a', '--benchmark-average', action='store_true', help='print average time execution benchmarks using hyperfine')
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         prog='chum',
         description='A tool for downloading and testing programming problems')
@@ -90,3 +90,6 @@ if __name__ == '__main__':
         new_problem(problems_root, args.problem_name)
     elif args.command == 'test':
         run_and_test(problems_root, args.problem_name, args.benchmark, args.benchmark_average, not args.no_cleanup)
+
+if __name__ == '__main__':
+    main()
