@@ -4,7 +4,13 @@ pkgrel=1
 arch=('x86_64')
 
 makedepends=(python-build python-installer python-wheel python-hatchling)
-optdepends=('hyperfine: benchmarking support')
+depends=(
+    'python-requests'
+)
+optdepends=(
+    'hyperfine: benchmarking support'
+    'pypy3: python code compillation support'
+)
 
 package() {
     cd ..

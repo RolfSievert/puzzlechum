@@ -4,9 +4,28 @@ Helper scripts to create, test, and benchmark your algorithms! (also downloads k
 
 *(Only works for **rust**, **c++** and **python** currently, but feel free to open an Issue for further language support)*
 
-## TODO
+## Installation
 
-- make installable and that all commands run as subcommands of `chum`, i.e. `chum new` and `chum test`
+### Arch linux
+
+Two options:
+1. Run `just install-arch` to install using pacman. (requires [just](https://github.com/casey/just))
+2. Run the following code
+```bash
+python3 -m build
+makepkg --syncdeps --force --clean
+sudo pacman -U puzzlechum-*-x86_64.pkg.tar.zst
+```
+
+### Using pip
+
+I recommend installing with [pipx](https://github.com/pypa/pipx), and it is used just like pip is used.
+```bash
+python3 -m build
+pipx install .
+```
+
+but if you want to, you can exchange `pipx` with `pip`.
 
 ## Requirements
 
@@ -19,35 +38,30 @@ Optional dependencies:
 ### Testing python code
 - [pypy3](https://www.pypy.org/) - required for python code compilation
 
-
 ## Usage
 
-Just clone this repo (there are no prerequisites). See the following commands to get started:
+Install the package and run `chum --help` to see available commands.
 
-- `./newproblem [-h, --help] [--template {cpp,rs,py}] problem_name`
-    - Creates file in `problems/` folder based on template in `templates/`
-    - Automatically downloads tests from `open.kattis.com/problems/[problem_name]` to `tests/[problem_name]/`
+`chum` runs anywhere beneath the problems root, which you set with `chum init`. This is so that chum knows where to search for your solutions.
 
-- `./runtest [-h, --help] [-b, --benchmark] [-n, --no-cleanup] problem_name`
-    - Compiles and tests your solutions matching `problem_name*` within `problems/problem_name/`
-    - Compares output of program given the `*.in`-files within `tests/problem_name/` and `problems/problem_name/tests/` to the `*.ans`-files in the same folder
-    - If test fails, prints first faulty output line and information
-    - if `-b` or `--benchmark` is provided, outputs minimal runtime of problem file for all tests in a compact grid
-    - if `-n` or `--no-cleanup` is provided, leave compilation and output files in `.runtest_tmp/`
+Main commands:
+- `chum new [problem name]` - create a new problem, and tests are downloaded automatically if the `[problem name]` matches an open kattis problem ID.
+- `chum test [problem name]` - compile and run tests, see the `--benchmark` flag for also outputting performance numbers and solution comparisons.
+    - you may have several solutions in your problem folder, just make sure that each begin with `[problem name]` so that `chum` recognizes them as solutions to be compared.
 
 
 ### Examples
 
 `newproblem` example:
 ```
-./newproblem triarea
-Copied template to '/home/rolfsievert/projects/puzzlechum/problems/triarea/triarea.cpp'
-Test samples successfully downloaded to '/home/rolfsievert/projects/puzzlechum/tests/triarea'
+chum new triarea
+Copied template to '.../problems/triarea/triarea.cpp'
+Test samples successfully downloaded to '.../problems/.chumtests/triarea'
 ```
 
 `runtest` example:
 ```
-./runtest twosum --benchmark
+chum test twosum --benchmark
 Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
 Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
 
@@ -69,7 +83,7 @@ sample2  0.6 ms  1.0 ms
 Failing `runtest` example:
 
 ```
-./runtest twosum
+chum test twosum
 Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
 Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
 
@@ -88,19 +102,15 @@ EXPECTED: 2
 
 ```
 problems/
-    problem_name/
+    problem1_name/
         tests/
             sample1.in
             sample1.ans
-        problem_name*.cpp
-        problem_name*.rs
-        problem_name*.py
-    ...
-tests/
-    problem_name/
-        sample1.in
-        sample1.ans
+        problem1_name*.cpp
+        problem1_name*.rs
+        problem1_name*.py
+
+    problem2_name/
+        ...
     ...
 ```
-
-> If you already have a problems folder, just symlink it to `.../puzzlechum/problems` to make it accessible by the scripts.
