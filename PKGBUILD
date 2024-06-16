@@ -4,11 +4,7 @@ pkgrel=1
 arch=('x86_64')
 
 makedepends=(python-build python-installer python-wheel python-hatchling)
-
-build() {
-    cd ..
-    python3 -m build --wheel --no-isolation
-}
+optdepends=('hyperfine: benchmarking support')
 
 package() {
     cd ..
