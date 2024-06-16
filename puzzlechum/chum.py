@@ -11,7 +11,7 @@ from .runtest import run_and_test
 
 def has_valid_problems_root() -> bool:
     cwd = Path.cwd()
-    
+
     if not (cwd / '.chum').is_dir():
         return False
     if not (cwd / '.chum' / 'tests').is_dir():
@@ -23,7 +23,7 @@ def has_valid_problems_root() -> bool:
 
 def create_problems_root() -> None:
     cwd = Path.cwd()
-    
+
     if not (cwd / '.chum').is_dir():
         (cwd / '.chum').mkdir()
     if not (cwd / '.chum' / 'tests').is_dir():
@@ -76,6 +76,9 @@ def main():
         else:
             create_problems_root()
             print('Problems root initialized, go solve your problems!')
+            print()
+            print('Remember:')
+            print(f" - You can override the default solution templates by adding templates to '{Path.cwd() / '.chumtemplates/'}'")
         exit()
 
     problems_root = find_problems_root()
