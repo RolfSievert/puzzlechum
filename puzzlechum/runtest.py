@@ -30,7 +30,7 @@ ACCEPTED_SRC_SUFFIXES = [
 ]
 
 # call .resolve() to make symlinking of scripts possible
-TMP_PATH = Path.cwd() / 'test_output'
+TMP_PATH = Path.cwd() / 'chum_output'
 
 HYPERFINE = 'hyperfine'
 
@@ -429,7 +429,7 @@ def run_and_test(problems_root: Path, problem_name: str, benchmark: bool, benchm
 
     source_files = get_source_files(problems_root, problem_name)
     sources_string = ', '.join(relativeCwd(src) for src in source_files)
-    print(f'{DIMMED}Compiling source files... [{sources_string}]{NULL}')
+    print(f'{DIMMED}Compiling source files: [{sources_string}]{NULL}')
 
     run_benchmark: bool = benchmark or benchmark_average
 
@@ -446,7 +446,7 @@ def run_and_test(problems_root: Path, problem_name: str, benchmark: bool, benchm
         # tuples of name, test name, execution command
         benchmarks: list[BenchmarkTask] = []
         tests_string = ', '.join(relativeCwd(test) for test, _ in ins_ans_pairs)
-        print(f'{DIMMED}Running tests... [{tests_string}]{NULL}')
+        print(f'{DIMMED}Running tests: [{tests_string}]{NULL}')
         print()
 
         for src_index, test_command in enumerate(test_commands):
@@ -498,3 +498,6 @@ def run_and_test(problems_root: Path, problem_name: str, benchmark: bool, benchm
         for x in TMP_PATH.iterdir():
             x.unlink()
         TMP_PATH.rmdir()
+    else:
+        print()
+        print(f"See output files: '{TMP_PATH.relative_to(Path.cwd())}'")
