@@ -52,50 +52,54 @@ Main commands:
 
 ### Examples
 
-`newproblem` example:
+`new` example:
 ```
-chum new triarea
-Copied template to '.../problems/triarea/triarea.cpp'
-Test samples successfully downloaded to '.../problems/.chumtests/triarea'
+➤ chum new twosum
+Copied template to 'twosum/twosum.cpp'
+Test samples successfully downloaded to '/home/.../kattis-problems/.chumtests/twosum'
 ```
 
-`runtest` example:
+`test --benchmark` example:
 ```
-chum test twosum --benchmark
-Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
-Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
+➤ chum test twosum --benchmark
+Compiling source files: [twosum/twosum.cpp, twosum/twosum.rs]
+Running tests: [.chumtests/twosum/sample1.in, .chumtests/twosum/sample2.in]
 
-/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp
-  ✔ - PASSED
-/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs
-  ✔ - PASSED
+twosum/twosum.cpp
+  ✔ - PASSED .chumtests/twosum/sample1.in
+  ✔ - PASSED .chumtests/twosum/sample2.in
+twosum/twosum.rs
+  ✔ - PASSED .chumtests/twosum/sample1.in
+  ✔ - PASSED .chumtests/twosum/sample2.in
 
 ...
 
 Fastest executions
  (1) twosum.cpp
  (2) twosum.rs
-          (1)     (2)
-sample1  0.6 ms  1.0 ms
-sample2  0.6 ms  1.0 ms
+         (1)       (2)
+sample1  319.7 µs  489.4 µs
+sample2  319.2 µs  485.2 µs
 ```
 
-Failing `runtest` example:
-
+Failing `test` example:
 ```
-chum test twosum
-Compiling source files... [/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp, /home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs]
-Running tests... [/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.in, /home/rolfsievert/projects/puzzlechum/tests/twosum/sample2.in]
+➤ chum test twosum
+Compiling source files: [twosum/twosum.cpp, twosum/twosum.rs]
+Running tests: [.chumtests/twosum/sample1.in, .chumtests/twosum/sample2.in]
 
-/home/rolfsievert/projects/puzzlechum/tests/twosum/sample1.ans failed at line 1
-EXPECTED: 2
+.chumtests/twosum/sample2.ans
+FAIL!
+    at: line 1
+    got: 2
+    expected: 4
 
-3
-
-/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.cpp
-  ✗ - FAILED
-/home/rolfsievert/projects/puzzlechum/problems/twosum/twosum.rs
-  ✔ - PASSED
+twosum/twosum.cpp
+  ✔ - PASSED .chumtests/twosum/sample1.in
+  ✗ - FAILED .chumtests/twosum/sample2.in
+twosum/twosum.rs
+  ✔ - PASSED .chumtests/twosum/sample1.in
+  ✔ - PASSED .chumtests/twosum/sample2.in
 ```
 
 ## Folder structure
