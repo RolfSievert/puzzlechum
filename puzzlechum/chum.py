@@ -31,6 +31,20 @@ def create_problems_root() -> None:
     if not (cwd / '.chum' / 'benchmarks').is_dir():
         (cwd / '.chum' / 'benchmarks').mkdir()
 
+def set_last_problem(problems_root: Path, problem_name: str) -> None:
+    last_path = problems_root / '.chum' / 'last_problem'
+
+    with open(last_path, 'w') as file:
+        file.write(problem_name)
+
+def last_problem(problems_root: Path) -> str|None:
+    last_path = problems_root / '.chum' / 'last_problem'
+
+    with open(last_path, 'r') as file:
+        problem_name = file.read().strip()
+
+    return problem_name
+
 def build_parser(subparsers) -> None:
     subparsers.add_parser(
         'init',
@@ -54,8 +68,8 @@ def build_parser(subparsers) -> None:
         'test',
         help='Test one of your solutions')
 
-    test_parser.add_argument('problem_name')
-    test_parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in '.runtest_tmp/'")
+    test_parser.add_argument('problem_name', nargs='?', default=None, help='defaults to last problem used with command `new` or `test`')
+    test_parser.add_argument('-n', '--no-cleanup', action='store_true', help="leave compilation and output files in 'chum_output/'")
 
     exclusive_group = test_parser.add_mutually_exclusive_group(required=False)
     exclusive_group.add_argument('-b', '--benchmark', action='store_true', help='print minimal time execution benchmarks using hyperfine')
@@ -92,8 +106,17 @@ def main():
             template = Template(args.template)
 
         new_problem(problems_root, args.problem_name, template)
+        set_last_problem(problems_root, args.problem_name)
     elif args.command == 'test':
-        run_and_test(problems_root, args.problem_name, args.benchmark, args.benchmark_average, not args.no_cleanup)
+        problem_name = args.problem_name
+        if (problem_name is None):
+            problem_name = last_problem(problems_root)
+            if (problem_name is None):
+                print('Missing argument: problem name')
+                exit()
+        else:
+            set_last_problem(problems_root, problem_name)
+        run_and_test(problems_root, problem_name, args.benchmark, args.benchmark_average, not args.no_cleanup)
 
 if __name__ == '__main__':
     main()

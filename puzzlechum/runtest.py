@@ -30,7 +30,7 @@ ACCEPTED_SRC_SUFFIXES = [
 ]
 
 # call .resolve() to make symlinking of scripts possible
-TMP_PATH = Path.cwd() / 'test_output'
+TMP_PATH = Path.cwd() / 'chum_output'
 
 HYPERFINE = 'hyperfine'
 
