@@ -10,7 +10,7 @@ build:
 install: build
     @pipx install .
 
-install-arch: build
+install-arch:
     @makepkg --syncdeps --force --clean
     @sudo pacman -U puzzlechum-*-x86_64.pkg.tar.zst
 

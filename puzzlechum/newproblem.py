@@ -123,8 +123,8 @@ def new_problem(problems_root: Path, problem_name: str, template: Template|None 
             exit()
         else:
             set_default_language(problems_root, template.value)
-            print(f"New default programming language set: '{template.value}'.")
-            print(f"To change this setting, either remove or modify the file '{config_path(problems_root)}'.")
+            print(f"New default programming language set: '{template.value}'")
+            print(f" - To change this setting, remove or modify the file '{config_path(problems_root)}'")
             print()
     elif template == None:
         template = dl
@@ -133,7 +133,7 @@ def new_problem(problems_root: Path, problem_name: str, template: Template|None 
     template_success = copy_template(problems_root, template, problem_file)
 
     if template_success:
-        print(f'Copied template to \'{problem_file}\'')
+        print(f'Copied template to \'{problem_file.relative_to(Path.cwd())}\'')
     else:
         print(f'Problem already exists at {problem_file}')
 
