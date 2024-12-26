@@ -1,6 +1,5 @@
 app_name := 'puzzlechum'
 
-### recipes
 @default: build
 
 # build the project

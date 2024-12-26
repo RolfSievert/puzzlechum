@@ -43,7 +43,7 @@ def download_tests(problems_root: Path, problem_name: str) -> bool:
         url = TESTS_URL.format(problem_name)
         response = requests.get(url)
         if response.status_code >= 400:
-            print(f'Warning: Could not download test samples from kattis')
+            print('Warning: Could not download test samples from kattis')
             print(f" - Does '{problem_name}' exist at kattis?")
             print(' - Do you have an internet connection?\n')
             return False
@@ -87,7 +87,7 @@ def default_language(problems_root: Path) -> Template|None:
     if DEFAULT_LANGUAGE_KEY in config:
         try:
             return Template(config[DEFAULT_LANGUAGE_KEY])
-        except:
+        except Exception:
             raise Exception(f"'{config[DEFAULT_LANGUAGE_KEY]}' is not a valid template! Must be any of {list(t.value for t in Template)}")
     else:
         return None
@@ -117,7 +117,7 @@ def new_problem(problems_root: Path, problem_name: str, template: Template|None 
     create_problem_folders(problems_root, problem_name)
 
     dl = default_language(problems_root)
-    if dl == None:
+    if dl is None:
         if template is None:
             print(f'You have not set a default programming language. The following argument must be set the first time you run this script:\n  --template [{", ".join(t.value for t in Template)}]')
             exit()
@@ -126,14 +126,14 @@ def new_problem(problems_root: Path, problem_name: str, template: Template|None 
             print(f"New default programming language set: '{template.value}'")
             print(f" - To change this setting, remove or modify the file '{config_path(problems_root)}'")
             print()
-    elif template == None:
+    elif template is None:
         template = dl
 
     problem_file = problem_path(problems_root, problem_name, template.value)
     template_success = copy_template(problems_root, template, problem_file)
 
     if template_success:
-        print(f'Copied template to \'{problem_file.relative_to(Path.cwd())}\'')
+        print(f'Copied template to \'./{problem_file.relative_to(Path.cwd())}\'')
     else:
         print(f'Problem already exists at {problem_file}')
 
@@ -141,4 +141,7 @@ def new_problem(problems_root: Path, problem_name: str, template: Template|None 
     if tests_success:
         print(f"Test samples successfully downloaded to '{problem_test_directory(problems_root, problem_name)}'")
     else:
-        print(f"Test samples already exists, skipping...")
+        print("Test samples was not found, skipping...")
+
+    if template_success:
+        print(f"Done creating problem at '{problems_root}/{problem_name}'")
