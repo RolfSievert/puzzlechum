@@ -6,12 +6,13 @@
 Provided a problem id, downloads tests and creates a test file if it doesn't exist already.
 """
 
-from enum import Enum
-import shutil
-import requests
-from pathlib import Path
-import zipfile
 import json
+import shutil
+import zipfile
+from enum import Enum
+from pathlib import Path
+
+import requests
 
 TEMPLATES_ROOT = Path(__file__).parent / 'templates'
 
